@@ -1,0 +1,44 @@
+{
+  "name": "squadquest-axi",
+  "version": "0.1.0",
+  "description": "Agent-ergonomic CLI for SquadQuest — see what your friends are up to, post events, and rally a squad from the terminal.",
+  "type": "module",
+  "license": "MIT",
+  "author": "SquadQuest",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "squadquest-axi": "dist/bin/squadquest-axi.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SquadQuest/squadquest-axi.git"
+  },
+  "homepage": "https://github.com/SquadQuest/squadquest-axi#readme",
+  "bugs": {
+    "url": "https://github.com/SquadQuest/squadquest-axi/issues"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x dist/bin/squadquest-axi.js",
+    "check": "tsc --noEmit",
+    "dev": "bun bin/squadquest-axi.ts",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["squadquest", "events", "supabase", "cli", "agent", "axi", "toon"],
+  "files": ["dist", "LICENSE", "README.md"],
+  "dependencies": {
+    "@toon-format/toon": "^4.1.1",
+    "axi-sdk-js": "^0.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.1",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.1"
+  }
+}
