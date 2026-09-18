@@ -29,13 +29,25 @@ Candidates come only from **accepted** friends ([api/friends](../api/friends.md)
 never from `requested`, `declined`, or the wider `profiles` table. Matching is
 case-insensitive and runs in tiers, stopping at the first tier that yields any match:
 
-1. exact full name (`first last`)
-2. exact first name, or exact last name
-3. prefix match on first or last name
-4. substring match anywhere in the full name
+1. **exact** — full name (`first last`), or first name, or last name
+2. prefix match on first or last name
+3. substring match anywhere in the full name
 
 A later tier is never consulted once an earlier one matches. This keeps an exact
 "Chris" from being drowned out by every "Christine", "Christopher" and "Chrischi".
+
+### Why "exact" is one tier and not two
+
+Full-name and first/last matches must share a tier. Splitting them — full name first,
+then first/last — looks more precise and is actively dangerous: a friend with **no last
+name** has a full name equal to their first name, so they alone win the earlier tier and
+silently shadow everyone who shares that first name. Typing `Ada` would resolve to the
+lone "Ada" rather than reporting her and "Ada Lovelace" as ambiguous.
+
+That is a wrong-person pick with no warning, which is the failure this document exists to
+prevent. Single-word display names are common, so this is the normal case, not an edge
+case. Ambiguity between an exact full name and an exact first name is real ambiguity and
+belongs in front of the caller.
 
 ## The outcomes
 

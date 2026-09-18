@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [client-auth]
 specs:
   - specs/api/friends.md
@@ -45,18 +45,18 @@ Out of scope: `friends request/accept/decline` (`friend-requests`), invite (`rsv
 
 ## Validation
 
-- [ ] `friends` lists accepted friends alphabetically with exactly `name,id`
-- [ ] No phone number, photo URL, or push token appears in any output
-- [ ] Both FK-aliased embeds resolve in one query, against the real schema
-- [ ] Requester and requestee sides both collapse to the correct other person
-- [ ] Exact "Chris" is not drowned out by Christine/Christopher/Chrischi (tier stops)
-- [ ] Zero matches exits 2 with the search command and the friend count
-- [ ] 2+ matches exits 2 listing every candidate with its id
-- [ ] `resolveAll` with one bad name among several returns an error naming **all** bad
+- [x] `friends` lists accepted friends alphabetically with exactly `name,id`
+- [x] No phone number, photo URL, or push token appears in any output
+- [x] Both FK-aliased embeds resolve in one query, against the real schema
+- [x] Requester and requestee sides both collapse to the correct other person
+- [x] Exact "Chris" is not drowned out by Christine/Christopher/Chrischi (tier stops)
+- [x] Zero matches exits 2 with the search command and the friend count
+- [x] 2+ matches exits 2 listing every candidate with its id
+- [x] `resolveAll` with one bad name among several returns an error naming **all** bad
       names and no ids
-- [ ] Matching is case-insensitive and handles single-word and non-Latin display names
-- [ ] `--pending` shows direction and age for incoming and outgoing requests
-- [ ] Fixtures contain only invented people
+- [x] Matching is case-insensitive and handles single-word and non-Latin display names
+- [x] `--pending` shows direction and age for incoming and outgoing requests
+- [x] Fixtures contain only invented people
 
 ## Risks / unknowns
 
@@ -69,4 +69,29 @@ Out of scope: `friends request/accept/decline` (`friend-requests`), invite (`rsv
 
 ## Notes
 
+- **The tiering in the spec was wrong, and a test caught it.** Splitting "exact full name"
+  from "exact first/last" into separate tiers means a friend with **no last name** has a
+  full name equal to their first name, wins the earlier tier alone, and silently shadows
+  everyone sharing that first name. Typing `Ada` resolved to the lone "Ada" instead of
+  reporting her and "Ada Lovelace" as ambiguous — a wrong-person pick with no warning,
+  which is precisely the failure this plan exists to prevent. Single-word display names
+  are common, so this was the normal case, not an edge case.
+  **Fixed in both places**: exact is now one tier, and
+  specs/behaviors/name-resolution.md carries a section explaining why.
+- **Verified live against a 122-person graph.** `--search chris` returns exactly one (the
+  exact first-name tier stopping before prefix), while `--search christ` correctly returns
+  three as ambiguous.
+- **`resolveAllIn` was extracted as the pure core** of `resolveAll` so the all-or-nothing
+  rule is testable without a network.
+- **`--pending` suppresses the accept/decline hint when every request is outgoing** —
+  found live, where all 8 pending requests were outgoing and the hint pointed at a no-op.
+- **Resolution needs a cached self profile** to collapse requester/requestee. An env-only
+  token has none, so `friends` fails with `NO_SELF` rather than guessing which side is
+  you.
+
 ## Follow-ups
+
+- **`get-friends-network` is still unevaluated** (criterion left unchecked). It scrubs
+  profiles by default, which would be preferable to the raw PostgREST read this plan
+  shipped. Worth confirming before `release-v1`; the read is correct either way, just less
+  defensive than the edge function.
