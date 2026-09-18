@@ -58,18 +58,31 @@ truncated (AXI §3).
 ## events create
 
 ```
-squadquest-axi events create --title "..." --start <when> [--start-max <when>]
-  [--end <when>] --location "..." [--rally-point <lat,lon>] [--topic <name>]
+squadquest-axi events create --title "..." --start <when> --location "..."
+  --topic <name> [--start-max <when>] [--end <when>] [--rally-point <lat,lon>]
   [--visibility private|friends|public] [--link <url>] [--notes "..."]
 ```
 
 - `--visibility` defaults to **`friends`**, matching the app. `private` is invite-only.
-- `--start-max` sets the far end of the rally window; omitted, it equals `--start` and the
-  confirmation says so explicitly, because a zero-width window is a real choice and
-  should be visible ([api/instances](../api/instances.md)).
-- `--topic` takes a **name**, resolved against existing topics. An unknown name fails
-  with near-matches and the create command — never auto-created
+- **`--start` / `--start-max` are the *arrival* window — when people should show up — and
+  `--end` is when the thing wraps.** These answer different questions and callers conflate
+  them: for a festival running 1 PM to 3 AM, the arrival window is something like
+  1–8 PM and `--end` is 3 AM. Setting `--start-max` to the end time tells your squad to
+  turn up any time in a ten-hour span, which coordinates nobody. The flag help must say
+  "arrival window", not "rally window" — the domain term means nothing to a caller who
+  hasn't read the spec.
+- `--start-max` omitted equals `--start`, and the confirmation says so explicitly, because
+  a zero-width window is a real choice and should be visible
+  ([api/instances](../api/instances.md)).
+- **`--topic` is required**, and takes a **name** resolved against existing topics. An
+  unknown name fails with near-matches and the create command — never auto-created
   ([api/topics](../api/topics.md)).
+
+  It is required because an event with a null topic **crashes the v1 clients**
+  ([api/instances](../api/instances.md)). The column is nullable, so nothing upstream
+  stops this tool from writing data that breaks the product for everyone who can see the
+  event — which makes it the client's job to refuse. `edit` may change a topic but never
+  clear one.
 
 **Creates the event and RSVPs the host `yes` as one operation.** An event whose host has
 no RSVP row shows nobody attending. If the RSVP call fails after the event is created,
@@ -100,6 +113,50 @@ Review before posting is the point. A scraper that silently posted would turn a 
 into a notification. The help line is the filled-in create command, so accepting a good
 draft is one paste.
 
+## events edit
+
+```
+squadquest-axi events edit <id> [--title "..."] [--start <when>] [--start-max <when>]
+  [--end <when>] [--location "..."] [--rally-point <lat,lon>] [--topic <name>]
+  [--visibility ...] [--link <url>] [--notes "..."]
+```
+
+Changes a posted event in place. Only the flags given are touched; everything else is
+left alone.
+
+**This command exists because its absence is dangerous.** Without it the only way to
+change a posted event is cancel-and-recreate, which fires a cancellation notification at
+every `yes`/`maybe`/`omw` attendee, discards their RSVPs, and leaves a dead event behind.
+A caller who wants to fix a typo should not have to un-invite their friends to do it.
+
+### edit vs cancel — the distinction the command surface must teach
+
+These are not two ways to do the same thing, and an agent that confuses them tells
+everyone a party is off in order to fix a spelling mistake.
+
+| The event is… | Use | What guests see |
+| --- | --- | --- |
+| still happening; the *record* is wrong | **`edit`** | at most a change notice |
+| not happening any more | **`cancel`** | "this is off" |
+
+`cancel` is a **message to your guests**, not a record operation. `edit` is a record
+operation that leaves the plan intact. Because the destructive one is the one an agent
+reaches for when no alternative is visible, `edit` must be surfaced everywhere the
+question comes up: in `events view`'s hints, after `create`, in `cancel`'s own output, and
+in the top-level summary line.
+
+- **Host only.** Checked client-side, same as cancel.
+- **No flags → exit 2.** An edit that changes nothing is a caller mistake, not a no-op:
+  it almost always means the flags were misspelled.
+- Reports **what changed**, old → new, per field. A caller needs to see that they edited
+  the field they meant to.
+- Window and coordinate validation is identical to `create`, and runs before the write.
+- May change a topic, but **never clear one** — a null topic crashes the v1 clients
+  ([api/instances](../api/instances.md)).
+
+Edits go through a plain `PATCH`; the notification fan-out is handled by database
+webhooks ([api/instances](../api/instances.md)), so writing the row is the whole job.
+
 ## events cancel
 
 `squadquest-axi events cancel <id>`
@@ -112,5 +169,23 @@ Idempotent: cancelling a cancelled event is exit 0 with a no-op note (AXI §6). 
 host may cancel; the client checks locally and says so rather than letting the write
 appear to succeed.
 
+**Cancel announces to guests that the event is off.** Use it only for that. If the event
+is still happening and the record is simply wrong, that is [`edit`](#events-edit) — the
+confirmation says so, because the moment a caller has just cancelled is the moment they
+find out whether they picked the right verb.
+
 The confirmation states how many attendees are being notified, since that is the
 consequence the caller is actually authorizing.
+
+## events uncancel
+
+`squadquest-axi events uncancel <id>`
+
+Restores a canceled event to `live`. Its own verb rather than a flag on `edit`, so that
+the pair `cancel` / `uncancel` is visible in the command list and a caller who cancelled
+the wrong thing finds the undo by reading rather than by guessing.
+
+Idempotent: uncancelling a live event is exit 0 with a no-op note. Host only. Attendees
+are notified of the change by the same webhook that announced the cancellation, so an
+accidental cancel-then-uncancel sends two messages — the confirmation says so plainly
+rather than implying the mistake went unseen.
