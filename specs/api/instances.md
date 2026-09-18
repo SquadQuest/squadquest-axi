@@ -13,7 +13,7 @@ An **instance** is an event. The table is `instances`; the v1 client model is
 | `status` | enum | `draft` \| `live` \| `canceled` |
 | `visibility` | enum | `private` \| `friends` \| `public` |
 | `title` | text | required |
-| `topic` | uuid → topics | nullable |
+| `topic` | uuid → topics | nullable in the schema, **required in practice** — see below |
 | `start_time_min` | timestamptz | **required** — earliest the host expects to start |
 | `start_time_max` | timestamptz | **required** — latest |
 | `end_time` | timestamptz | nullable |
@@ -23,6 +23,19 @@ An **instance** is an event. The table is `instances`; the v1 client model is
 | `link` | text | external URL |
 | `notes` | text | freeform body |
 | `banner_photo` | text | URL |
+
+## Topic is nullable in the schema and required in practice
+
+The column accepts `NULL`, and an event written with one **crashes the v1 clients** that
+try to render it. Observed 2026-09-18: an event this tool created without a topic broke
+the app for real users until a topic was added by hand. A survey of the production
+instance the same day found **zero** events with a null topic, which is consistent with
+the app itself never producing one.
+
+So a client must treat `topic` as required on create, and must never clear it on edit.
+The database will happily accept the write; the product will not survive it. This is the
+sharpest case of [principles § absorb the quirk](../principles.md) in the API: the
+permissive schema is wrong about what the system can actually tolerate.
 
 ## The rally window is two timestamps, not one
 

@@ -1,6 +1,18 @@
 import { AxiError } from "axi-sdk-js";
 
 export interface FlagSpec {
+  /**
+   * How many positional arguments this command accepts. Anything beyond it is
+   * rejected.
+   *
+   * Without this, `events create <id> --title x` silently DROPPED the id and
+   * created a duplicate event while reporting success — the agent believed it
+   * had edited in place. AXI §6: a dropped argument is worse than an error,
+   * because the caller proceeds confidently on a wrong result.
+   *
+   * `undefined` means unlimited (e.g. `invite`, which takes a list of people).
+   */
+  positionals?: number;
   /** Flags that take a value, e.g. `--limit 10`. */
   value?: string[];
   /** Flags that are standalone switches, e.g. `--available`. */
@@ -146,6 +158,21 @@ export function parseFlags(command: string, argv: string[], spec: FlagSpec): Par
     unknown(name);
   }
 
+  const allowed = spec.positionals;
+  if (allowed !== undefined && positional.length > allowed) {
+    throw new AxiError(
+      allowed === 0
+        ? `\`${command}\` takes no positional arguments, but got "${positional[0]}"`
+        : `\`${command}\` takes ${allowed} positional argument${allowed === 1 ? "" : "s"}, but got ${positional.length}`,
+      "USAGE",
+      [
+        allowed === 0
+          ? `Everything for \`${command}\` is passed as a flag — run \`squadquest-axi ${command} --help\``
+          : `Run \`squadquest-axi ${command} --help\` for the expected form`,
+      ],
+    );
+  }
+
   return { positional, flags, multi };
 }
 
@@ -215,25 +242,42 @@ export function parseSubcommand(
 // `--timezone` is global and never declared per-command.
 
 export const AUTH_FLAGS: Record<string, FlagSpec> = {
-  login: { value: ["--phone"] },
-  verify: {},
-  status: {},
-  logout: {},
+  login: { value: ["--phone"], positionals: 0 },
+  verify: { positionals: 1 },
+  status: { positionals: 0 },
+  logout: { positionals: 0 },
 };
 
-export const DOCTOR_FLAGS: FlagSpec = {};
+export const DOCTOR_FLAGS: FlagSpec = { positionals: 0 };
 
-export const HOME_FLAGS: FlagSpec = { value: ["--limit"] };
+export const HOME_FLAGS: FlagSpec = { value: ["--limit"], positionals: 0 };
 
 export const SETUP_FLAGS: FlagSpec = {
   value: ["--agent", "--scope"],
   boolean: ["--status", "--uninstall"],
+  positionals: 0,
 };
 
 export const EVENTS_FLAGS: Record<string, FlagSpec> = {
-  list: { value: ["--limit", "--topic"], boolean: ["--past", "--hosting"] },
-  view: { boolean: ["--full"] },
+  list: { value: ["--limit", "--topic"], boolean: ["--past", "--hosting"], positionals: 0 },
+  view: { boolean: ["--full"], positionals: 1 },
+  edit: {
+    value: [
+      "--title",
+      "--start",
+      "--start-max",
+      "--end",
+      "--location",
+      "--rally-point",
+      "--topic",
+      "--visibility",
+      "--link",
+      "--notes",
+    ],
+    positionals: 1,
+  },
   create: {
+    positionals: 0,
     value: [
       "--title",
       "--start",
@@ -247,22 +291,24 @@ export const EVENTS_FLAGS: Record<string, FlagSpec> = {
       "--notes",
     ],
   },
-  draft: { value: ["--url", "--flyer"] },
-  cancel: {},
+  draft: { value: ["--url", "--flyer"], positionals: 0 },
+  cancel: { positionals: 1 },
+  uncancel: { positionals: 1 },
 };
 
+// invite takes a variable-length list of people, so no arity cap.
 export const INVITE_FLAGS: FlagSpec = { value: ["--event"] };
 
-export const RSVP_FLAGS: FlagSpec = { value: ["--event", "--note"] };
+export const RSVP_FLAGS: FlagSpec = { value: ["--event", "--note"], positionals: 1 };
 
 export const FRIENDS_FLAGS: Record<string, FlagSpec> = {
-  list: { value: ["--search", "--limit"], boolean: ["--pending"] },
-  request: { value: ["--phone", "--first-name", "--last-name"] },
-  accept: {},
-  decline: {},
+  list: { value: ["--search", "--limit"], boolean: ["--pending"], positionals: 0 },
+  request: { value: ["--phone", "--first-name", "--last-name"], positionals: 0 },
+  accept: { positionals: 1 },
+  decline: { positionals: 1 },
 };
 
 export const TOPICS_FLAGS: Record<string, FlagSpec> = {
-  list: { value: ["--search", "--limit"] },
-  create: { boolean: ["--force"] },
+  list: { value: ["--search", "--limit"], positionals: 0 },
+  create: { boolean: ["--force"], positionals: 1 },
 };
