@@ -19,6 +19,7 @@ import {
   renderListResponse,
   renderObject,
 } from "../output/index.js";
+import { cancelCommand, createCommand } from "./events-write.js";
 import { notImplemented } from "./stub.js";
 
 const NOTES_LIMIT = 500;
@@ -31,9 +32,9 @@ export async function eventsCommand(args: string[]): Promise<string> {
     case "view":
       return view(parsed.positional[0], bool(parsed, "--full"), zone);
     case "create":
-      return notImplemented("events create", "events-write");
+      return createCommand(parsed, zone);
     case "cancel":
-      return notImplemented("events cancel", "events-write");
+      return cancelCommand(parsed.positional[0]);
     case "draft":
       return notImplemented("events draft", "events-draft");
     default:

@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [events-read]
 specs:
   - specs/api/instances.md
@@ -53,23 +53,23 @@ deliberately deferred).
 
 ## Validation
 
-- [ ] Wall-clock input converts correctly across a DST boundary for a future date
-- [ ] ISO-with-offset input is used verbatim
-- [ ] A relative expression like `tomorrow` exits 2 saying relative dates aren't parsed
-- [ ] max < min, end < max, and >24h windows each exit 2 before any network call
-- [ ] A past start is accepted and flagged in the confirmation
-- [ ] `--rally-point 39.9012,-75.172` round-trips to the same point (not Xinjiang)
-- [ ] Out-of-range coordinates exit 2
-- [ ] `--visibility` defaults to `friends`; `private` produces an invite-only event
-- [ ] Omitting `--start-max` yields an equal-ended window, stated in the confirmation
-- [ ] An unknown `--topic` fails with near-matches and creates nothing
-- [ ] `events create` leaves the host RSVP'd `yes`
-- [ ] A simulated RSVP failure still reports the event id and the fixing command
-- [ ] `events cancel` sets status, never deletes the row
-- [ ] Cancelling twice is exit 0 with a no-op note
-- [ ] A non-host cancelling exits 2 with the reason
-- [ ] `topics create` rejects a malformed name, flags a near-miss, honors `--force`
-- [ ] An exact-duplicate topic is exit 0 returning the existing one
+- [x] Wall-clock input converts correctly across a DST boundary for a future date
+- [x] ISO-with-offset input is used verbatim
+- [x] A relative expression like `tomorrow` exits 2 saying relative dates aren't parsed
+- [x] max < min, end < max, and >24h windows each exit 2 before any network call
+- [x] A past start is accepted and flagged in the confirmation
+- [x] `--rally-point 39.9012,-75.172` round-trips to the same point (not Xinjiang)
+- [x] Out-of-range coordinates exit 2
+- [x] `--visibility` defaults to `friends`; `private` produces an invite-only event
+- [x] Omitting `--start-max` yields an equal-ended window, stated in the confirmation
+- [x] An unknown `--topic` fails with near-matches and creates nothing
+- [x] `events create` leaves the host RSVP'd `yes`
+- [x] A simulated RSVP failure still reports the event id and the fixing command
+- [x] `events cancel` sets status, never deletes the row
+- [x] Cancelling twice is exit 0 with a no-op note
+- [x] A non-host cancelling exits 2 with the reason
+- [x] `topics create` rejects a malformed name, flags a near-miss, honors `--force`
+- [x] An exact-duplicate topic is exit 0 returning the existing one
 
 ## Risks / unknowns
 
@@ -83,4 +83,31 @@ deliberately deferred).
 
 ## Notes
 
+- **The flag parser broke the entire Western hemisphere.** Any value starting with `-` was
+  treated as a flag, so `--rally-point -75.172,39.9012` failed with "requires a value".
+  Fixed with an `isValueLike` check that admits negative numbers. Found by actually
+  running the reversed-coordinate case rather than only unit-testing the parser.
+- **The reversed-coordinate net let one through, exactly as documented.** `-75.172,39.9012`
+  is a valid latitude/longitude pair numerically, so it created a real event. The range
+  check catches most of the populated world and cannot catch this; the guarantee remains
+  that the WKT swap exists in one function.
+- **There is no delete path for a user token.** Cleaning up that accidental event revealed
+  `DELETE` on `instances` and `instance_members` returning **`200` with an empty array**
+  and changing nothing — RLS has no delete policy, and PostgREST reports a policy-filtered
+  delete as an empty result rather than an error. This retroactively justifies
+  cancel-not-delete as the only possible behaviour, and is now recorded in
+  specs/api/instances.md.
+- **Verified live**: near-miss detection blocked `sports.hocky` with `sports.hockey` as the
+  candidate; an exact duplicate is a no-op; cancel reported the attendee count and was
+  idempotent on a second run.
+- **The create+RSVP pair is not transactional and does not pretend to be.** On RSVP
+  failure the output reports the created event id, `your_rsvp: NOT SET`, and the exact
+  command to fix it.
+
 ## Follow-ups
+
+- **An accidental test event (`ed98763b…`, titled "T") remains on the production account**,
+  status `canceled` with a single host RSVP row. It cannot be removed with user
+  credentials — see the delete finding above. Clearing it needs service-role access.
+- The topic vocabulary is fetched in full on every `--topic` resolution. Fine for ~112
+  names; worth caching per invocation if the vocabulary grows.

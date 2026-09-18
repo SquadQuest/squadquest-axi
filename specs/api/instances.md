@@ -81,6 +81,14 @@ database webhooks, so the write is sufficient — see
 notifies every `maybe`/`yes`/`omw` attendee except the host. Deleting the row would
 strand attendees with no notice; the client must never delete an event to cancel it.
 
+**There is no delete path at all for a user token.** Confirmed 2026-09-18: `DELETE` on
+`instances` and on `instance_members` both return **`200` with an empty array** and change
+nothing — RLS has no delete policy, and PostgREST reports a policy-filtered delete as an
+empty result rather than an error. So cancel-not-delete is not merely the right design, it
+is the only thing the backend permits, and any code that appears to delete an event has
+silently done nothing. A client must never report a delete as successful on the strength
+of a 200.
+
 ## Drafting an event from a URL or flyer
 
 `scrape-event` is **unauthenticated** and returns an event-shaped draft:

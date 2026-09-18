@@ -22,6 +22,19 @@ export interface Parsed {
 const ALWAYS_ALLOWED = new Set(["--help", "-h"]);
 
 /**
+ * A negative number is a value, not a flag.
+ *
+ * Without this, `--rally-point -75.172,39.9012` is rejected as "requires a
+ * value" — which breaks every longitude in the Western hemisphere, and every
+ * latitude south of the equator.
+ */
+function isValueLike(arg: string | undefined): boolean {
+  if (arg === undefined) return false;
+  if (!arg.startsWith("-")) return true;
+  return /^-[.\d]/.test(arg);
+}
+
+/**
  * Value flags accepted on every command without per-command declaration.
  * `--timezone` resolves wall-clock input and output
  * (specs/behaviors/time-and-place.md) and, like `--help`, is never reported
@@ -102,12 +115,12 @@ export function parseFlags(command: string, argv: string[], spec: FlagSpec): Par
         continue;
       }
       const next = argv[i + 1];
-      if (next === undefined || next.startsWith("-")) {
+      if (!isValueLike(next)) {
         throw new AxiError(`${name} requires a value`, "USAGE", [
           `Run \`squadquest-axi ${command} ${name} <value>\``,
         ]);
       }
-      flags[name] = next;
+      flags[name] = next!;
       i++;
       continue;
     }
@@ -118,12 +131,12 @@ export function parseFlags(command: string, argv: string[], spec: FlagSpec): Par
         value = inlineValue;
       } else {
         const next = argv[i + 1];
-        if (next === undefined || next.startsWith("-")) {
+        if (!isValueLike(next)) {
           throw new AxiError(`${name} requires a value`, "USAGE", [
             `Run \`squadquest-axi ${command} ${name} <value>\``,
           ]);
         }
-        value = next;
+        value = next!;
         i++;
       }
       (multi[name] ??= []).push(value);
