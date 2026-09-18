@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [friends-resolution, events-read]
 specs:
   - specs/api/members.md
@@ -47,19 +47,19 @@ Out of scope: friend requests (`friend-requests`), event chat.
 
 ## Validation
 
-- [ ] `rsvp yes` sets status and echoes the post-change `going` count
-- [ ] Every status including `omw` and `none` works; `none` withdraws
-- [ ] `omw` confirmation states that location sharing started
-- [ ] Re-setting an existing status is exit 0 with a no-op note
-- [ ] An event id the user can't see reports not-found without implying access
-- [ ] `invite` with one name resolves, invites, and echoes name + id
-- [ ] `invite` with several names issues **one** call, not one per person
-- [ ] `invite` with one ambiguous name among several sends **nothing** and names all bad ones
-- [ ] Re-inviting an existing member reports `skipped`, exit 0
-- [ ] All-skipped states so plainly rather than printing an empty `invited` block
-- [ ] Inviting to an event the caller neither hosts nor belongs to exits 2
-- [ ] Output never claims a notification was delivered
-- [ ] Integration tests run against a dev instance with invented people — never production
+- [x] `rsvp yes` sets status and echoes the post-change `going` count
+- [x] Every status including `omw` and `none` works; `none` withdraws
+- [x] `omw` confirmation states that location sharing started
+- [x] Re-setting an existing status is exit 0 with a no-op note
+- [x] An event id the user can't see reports not-found without implying access
+- [x] `invite` with one name resolves, invites, and echoes name + id
+- [x] `invite` with several names issues **one** call, not one per person
+- [x] `invite` with one ambiguous name among several sends **nothing** and names all bad ones
+- [x] Re-inviting an existing member reports `skipped`, exit 0
+- [x] All-skipped states so plainly rather than printing an empty `invited` block
+- [x] Inviting to an event the caller neither hosts nor belongs to exits 2
+- [x] Output never claims a notification was delivered
+- [x] Integration tests run against a dev instance with invented people — never production
 
 ## Risks / unknowns
 
@@ -75,4 +75,26 @@ Out of scope: friend requests (`friend-requests`), event chat.
 
 ## Notes
 
+- **The command echoed the backend's names, not the ones it resolved** — caught by a test
+  asserting "Ada L." and getting the stub's profile back. That inverted the point of the
+  echo: the caller needs to verify that who *we matched* is who they meant. Now the
+  resolved names are printed and the response is used only to confirm which ids were
+  created, with a fallback to what we sent if it reports none.
+- **A test fake masked the permission guard.** The `instance_members` stub ignored the
+  instance filter, so every event looked like one the caller belonged to and
+  `NOT_PERMITTED` never fired. The fake now honours the filter — worth remembering that
+  an over-permissive fake hides exactly the guard you wrote it to prove.
+- **Verified live on the no-notification paths**: re-inviting an existing member reports
+  "nobody new" and issues no call at all; an ambiguous name exits 2 with all three
+  candidates and their ids. A real RSVP round trip (yes → maybe → yes) tracked the
+  `going` count 1 → 0 → 1 correctly.
+- **`invite` skips the call entirely when everyone is already a member**, rather than
+  relying on the backend to no-op. Same outcome, one less round trip, and the output can
+  say something definite.
+
 ## Follow-ups
+
+- **The live invite fan-out to a fresh recipient is still unexercised.** Every live test
+  deliberately used paths that notify nobody. Confirming a real invitation needs a second
+  account on a dev instance — worth doing before `release-v1`, and never against a
+  production friend graph.
