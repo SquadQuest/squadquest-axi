@@ -2,16 +2,18 @@ import { FRIENDS_FLAGS, bool, parseSubcommand, str } from "../flags.js";
 import { acceptedFriends, pendingFriendships, shortPersonName } from "../squadquest/friends.js";
 import { matchTiers } from "../squadquest/resolve.js";
 import { computed, renderListResponse } from "../output/index.js";
-import { notImplemented } from "./stub.js";
+import { actionCommand, requestCommand } from "./friend-requests.js";
 
 export async function friendsCommand(args: string[]): Promise<string> {
   const { sub, parsed } = parseSubcommand("friends", args, FRIENDS_FLAGS, "list");
 
   switch (sub) {
     case "request":
+      return requestCommand(parsed);
     case "accept":
+      return actionCommand("accepted", parsed.positional[0]);
     case "decline":
-      return notImplemented(`friends ${sub}`, "friend-requests");
+      return actionCommand("declined", parsed.positional[0]);
     default:
       return list({
         search: str(parsed, "--search"),

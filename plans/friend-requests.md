@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [friends-resolution]
 specs:
   - specs/api/friends.md
@@ -35,14 +35,14 @@ review, and its own tests.
 
 ## Validation
 
-- [ ] `request` rejects a malformed phone before any network call
-- [ ] The normalized E.164 number is echoed in the confirmation
-- [ ] `request` accepts no name-shaped input at all
-- [ ] The confirmation distinguishes existing-member request from non-member SMS
-- [ ] `accept` and `decline` work against ids from `--pending`
-- [ ] An invalid action value is rejected client-side, before the call
-- [ ] Re-accepting an accepted friendship is exit 0, no-op
-- [ ] Tests never send a real SMS; the non-member path is exercised against a dev instance
+- [x] `request` rejects a malformed phone before any network call
+- [x] The normalized E.164 number is echoed in the confirmation
+- [x] `request` accepts no name-shaped input at all
+- [ ] The confirmation distinguishes existing-member request from non-member SMS — **unverified**
+- [x] `accept` and `decline` work against ids from `--pending`
+- [x] An invalid action value is rejected client-side, before the call
+- [x] Re-accepting an accepted friendship is exit 0, no-op
+- [ ] The non-member path is exercised against a dev instance — **not done**; no dev instance exists yet
 
 ## Risks / unknowns
 
@@ -55,4 +55,23 @@ review, and its own tests.
 
 ## Notes
 
+- **Verified only on the paths that contact nobody**: a name-shaped `--phone` is rejected
+  before any call, a missing `--phone` exits 2 naming the number-only rule, and
+  `accept` with an unknown id is a no-op at exit 0.
+- **`parseSubcommand` strips the subcommand**, so the friendship id is `positional[0]`,
+  not `[1]`. Caught immediately; worth knowing for any future subcommand that takes an
+  argument.
+- **The response echo is preferred over our own normalization** where the backend provides
+  one, because `normalizePhone` runs server-side too and the two could disagree about
+  which number was actually contacted.
+- **`accept`/`decline` check the pending list first** rather than posting optimistically,
+  so an already-actioned request is a clean no-op instead of a backend error.
+
 ## Follow-ups
+
+- **The SMS-to-a-non-member path has never been run.** Two criteria are left unchecked
+  rather than assumed: the branch is written from the function's source, not from observed
+  behaviour, so the wording that distinguishes "request sent to a member" from "SMS sent
+  to a stranger" is unproven. Exercising it means texting a real phone, which needs a dev
+  instance and a number the tester owns. This is the highest-risk unverified path in the
+  tool — it spends money and contacts people outside SquadQuest.
