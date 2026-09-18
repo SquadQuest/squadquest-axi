@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: []
 specs:
   - specs/architecture.md
@@ -41,14 +41,14 @@ Out of scope: the backend adapter (`client-auth`), any command with real data.
 
 ## Validation
 
-- [ ] `bun run dev` with no args prints bin/description without throwing
-- [ ] Unknown command exits 2 with a structured TOON error naming valid commands
-- [ ] Unknown flag on a known command exits 2 and lists that command's valid flags
-- [ ] `--help` works at top level and per command
-- [ ] A thrown non-`AxiError` renders as `INTERNAL_ERROR` on **stdout**, never a stack trace
-- [ ] Config dir is created `0700`; a written session file is `0600`
-- [ ] `npm run build` emits an executable `dist/bin/squadquest-axi.js`
-- [ ] CI green on a PR
+- [x] `bun run dev` with no args prints bin/description without throwing
+- [x] Unknown command exits 2 with a structured TOON error naming valid commands
+- [x] Unknown flag on a known command exits 2 and lists that command's valid flags
+- [x] `--help` works at top level and per command
+- [x] A thrown non-`AxiError` renders as `INTERNAL_ERROR` on **stdout**, never a stack trace
+- [x] Config dir is created `0700`; a written session file is `0600`
+- [x] `npm run build` emits an executable `dist/bin/squadquest-axi.js`
+- [x] CI green on a PR
 
 ## Risks / unknowns
 
@@ -57,4 +57,25 @@ Out of scope: the backend adapter (`client-auth`), any command with real data.
 
 ## Notes
 
+- **Ported rather than reinvented.** `flags.ts`, `output/{schema,render,index}.ts` and
+  `version.ts` came from nexudus-axi with the tool name and the global flag swapped
+  (`--space` → `--timezone`). Same rendering as the sibling *-axi tools, for free.
+- **`axi-sdk-js` 0.1.12 matched 0.1.11's surface** — `runAxiCli`, `AxiError` and
+  `exitCodeForError` all behaved as nexudus-axi uses them. The drift risk named in this
+  plan did not materialize.
+- **`AxiError` has no `details` field**, so `src/errors.ts` adds `DetailedError` to carry
+  candidate lists on an error. `AMBIGUOUS_NAME` needs this to correct in one turn
+  (AXI §4), and `friends-resolution` depends on it.
+- **`encode()` inlines primitive arrays**, so `formatError` renders `help` through
+  `renderHelp` instead — otherwise every error printed `help[2]: a,b` on one line rather
+  than the AXI block form. Caught by smoke test, not by types.
+- **Usage-class errors exit 2, which the ported CI smoke test did not expect** (it
+  asserted exit 1). Adjusted, and `NOT_IMPLEMENTED` was added to `USAGE_CODES` so the
+  stubs match their own documented behavior.
+
 ## Follow-ups
+
+- `docs:check` is absent from CI until the skill generator lands — noted inline in
+  `ci.yml`, tracked by `home-hooks-docs`.
+- Stub commands throw before parsing flags, so unknown-flag rejection is currently proven
+  at the parser level only. It becomes end-to-end as each command declares its `FlagSpec`.
