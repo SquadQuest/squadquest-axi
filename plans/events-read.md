@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [client-auth]
 specs:
   - specs/api/instances.md
@@ -50,18 +50,18 @@ invite (`rsvp-invite`). The hook that runs home on session start is `home-hooks-
 
 ## Validation
 
-- [ ] `events` lists upcoming soonest-first with the real total, not the page size
-- [ ] `--past` reverses ordering and window
-- [ ] Times render in the resolved zone with the zone named — never raw UTC
-- [ ] A rally window renders as a range; equal ends render as a single time
-- [ ] `rally_point_text` round-trips to the same lat,lon that was written
-- [ ] `events view` shows the guest list without an embed error
-- [ ] Notes over 500 chars truncate with the total and offer `--full`; shorter ones don't
-- [ ] `going` counts `yes` + `omw` only
-- [ ] Home caps at 5 events and stays within its token budget
-- [ ] Home with no upcoming events states the zero with context
-- [ ] Home unauthenticated exits **0** and points at login
-- [ ] Home issues a bounded number of queries regardless of event count
+- [x] `events` lists upcoming soonest-first with the real total, not the page size
+- [x] `--past` reverses ordering and window
+- [x] Times render in the resolved zone with the zone named — never raw UTC
+- [x] A rally window renders as a range; equal ends render as a single time
+- [x] `rally_point_text` round-trips to the same lat,lon that was written
+- [x] `events view` shows the guest list without an embed error
+- [x] Notes over 500 chars truncate with the total and offer `--full`; shorter ones don't
+- [x] `going` counts `yes` + `omw` only
+- [x] Home caps at 5 events and stays within its token budget
+- [x] Home with no upcoming events states the zero with context
+- [x] Home unauthenticated exits **0** and points at login
+- [x] Home issues a bounded number of queries regardless of event count
 
 ## Risks / unknowns
 
@@ -72,4 +72,26 @@ invite (`rsvp-invite`). The hook that runs home on session start is `home-hooks-
 
 ## Notes
 
+- **The "measure before assuming" risk fired immediately.** The first implementation
+  fetched every visible event and narrowed in JS; `events --past` then died with
+  **"URI too long"**, because the follow-up `instance=in.(...)` grows with the whole
+  public calendar. Rewritten so both halves — hosted, and attending via an
+  `instance_members!inner(member)` join — are filtered, ordered and limited *server*-side,
+  and the member-row fetch only ever names the page's ids.
+- **The total had to stop lying.** Server-side limiting means `ordered.length` is a page,
+  not a count. Each half now fetches `limit + 1` so the output can say `50 of 55+` rather
+  than presenting a capped page as the whole set.
+- **The home view was printing `bin:` and `description:` twice** — the SDK emits that pair
+  for the home view itself (AXI §10), so the command must not.
+- **A test asserted the wrong thing about midnight**: `03:00Z` is still 11 PM the same
+  evening in New York. The code was right; the expectation was wrong, and the corrected
+  test now pins the off-by-one it was meant to guard.
+- **Verified live**: rally point round-trips to `39.9012,-75.172` (not its mirror in
+  Xinjiang), topic ids resolve to names, and the guest list renders without the two-FK
+  embed error.
+
 ## Follow-ups
+
+- `--topic` filters **after** the page is fetched, so a topic match outside the first
+  `limit` events is invisible. Fine at current scale; it should become a server-side
+  filter when `events-write` lands topic resolution.
