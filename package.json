@@ -1,7 +1,7 @@
 {
   "name": "squadquest-axi",
   "version": "0.1.0",
-  "description": "Agent-ergonomic CLI for SquadQuest — see what your friends are up to, post events, and rally a squad from the terminal.",
+  "description": "Agent-ergonomic CLI for SquadQuest \u2014 see what your friends are up to, post events, and rally a squad from the terminal.",
   "type": "module",
   "license": "MIT",
   "author": "SquadQuest",
@@ -28,10 +28,25 @@
     "dev": "bun bin/squadquest-axi.ts",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "docs": "bun run scripts/generate-skill.ts",
+    "docs:check": "bun run scripts/generate-skill.ts --check"
   },
-  "keywords": ["squadquest", "events", "supabase", "cli", "agent", "axi", "toon"],
-  "files": ["dist", "LICENSE", "README.md"],
+  "keywords": [
+    "squadquest",
+    "events",
+    "supabase",
+    "cli",
+    "agent",
+    "axi",
+    "toon"
+  ],
+  "files": [
+    "dist",
+    "skills/squadquest-axi",
+    "LICENSE",
+    "README.md"
+  ],
   "dependencies": {
     "@toon-format/toon": "^4.1.1",
     "axi-sdk-js": "^0.1.12"

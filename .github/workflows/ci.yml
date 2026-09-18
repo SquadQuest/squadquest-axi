@@ -36,7 +36,10 @@ jobs:
     - name: Test
       run: bun run test
 
-    # docs:check joins once the skill generator lands (home-hooks-docs plan).
+    - name: Check the generated skill is current
+      # SKILL.md is generated from src/reference.ts, so a hand-edit or a
+      # forgotten regeneration would silently ship stale docs.
+      run: bun run docs:check
 
     - name: Smoke test the built bundle
       # `--version` alone is not enough — it never reaches command dispatch.
