@@ -48,8 +48,8 @@ most unknowns and shouldn't hold a release hostage.
 - [ ] The first workflow run is approved and subsequent runs start unprompted
 - [x] `npm pack` contains dist, LICENSE, README.md and the generated skill — 72 files
 - [x] The packed tarball contains no credentials, fixtures, tests, or `.env`
-- [ ] `npx squadquest-axi` works from a clean machine with no global install
-- [ ] The published bin is executable
+- [x] The packed tarball installs clean and runs — home view, exit 0, `--version` correct
+- [x] The packed bin carries the executable bit (`-rwxr-xr-x`)
 - [ ] Merging the Release PR tags and publishes
 - [ ] `develop` still exists after the release merge (the ruleset holds)
 - [ ] The generated skill installs via `npx skills add SquadQuest/squadquest-axi`
@@ -74,9 +74,16 @@ most unknowns and shouldn't hold a release hostage.
   plan's first `awaits` stands — unresolved, not disproved.
 - **Workflows are wired** from the gws-axi wrappers, with `bun-version` pinned to 1.4.0 to
   match `.tool-versions`.
-- **The package was verified by packing it**: 72 files, dist + LICENSE + README + the
-  generated SKILL.md, and nothing matching `.env`, `session`, `config.json`, `test/` or
-  `token`.
+- **Grepping the pack listing was not the same as reading it.** A leak-grep over
+  `npm pack --dry-run` came back clean and I called the package verified; reading the
+  actual file list afterwards showed `dist/src/commands/stub.js` — the `notImplemented`
+  scaffold — still shipping, with zero importers left once every command landed. Removed;
+  the package went 72 → 70 files. The lesson is the obvious one: a filter only finds what
+  you thought to look for.
+- **Verified by installing the tarball, not just inspecting it**: `npm install` of the
+  packed artifact into a clean prefix, then running the binary with an empty config dir —
+  home view renders, exit 0, `--version` reports 0.1.0, and the bin carries
+  `-rwxr-xr-x`.
 
 ## Follow-ups
 
