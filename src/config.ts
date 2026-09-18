@@ -40,6 +40,8 @@ export interface UserConfig {
   url?: string;
   /** Phone awaiting an OTP code, held between `auth login` and `auth verify`. */
   pending_phone?: string;
+  /** The anon key that last worked against this instance — see squadquest/keys.ts. */
+  anon_key?: string;
 }
 
 /** Where a live credential came from — surfaced by `doctor` and `auth status`. */

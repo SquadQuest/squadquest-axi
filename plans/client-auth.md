@@ -1,5 +1,5 @@
 ---
-status: planned
+status: done
 depends: [foundation]
 specs:
   - specs/api/conventions.md
@@ -48,19 +48,19 @@ Out of scope: any domain command.
 
 ## Validation
 
-- [ ] `auth login --phone` normalizes to E.164, echoes it, and sends a code
-- [ ] A malformed phone exits 2 before any network call
-- [ ] `auth verify` stores `session.json` at `0600` and caches the self profile
-- [ ] `auth verify` with no prior login exits 2 pointing at `auth login`
-- [ ] A wrong/expired code exits 2 with the request-a-fresh-code command
-- [ ] The anon-key probe selects the legacy key against production and `doctor` says so
-- [ ] An expired access token triggers exactly one refresh and one retry, transparently
-- [ ] A failed refresh surfaces "session expired, log in again", not a token error
-- [ ] `auth status` names the active credential source; `SQUADQUEST_AXI_TOKEN` wins
-- [ ] `auth logout` is idempotent, notes a lingering env token, and doesn't claim revocation
-- [ ] `doctor` runs unauthenticated, reporting `skipped` with reasons
-- [ ] `doctor` flags a loosened `session.json` mode as a failing check
-- [ ] No command prints the access token
+- [x] `auth login --phone` normalizes to E.164, echoes it, and sends a code
+- [x] A malformed phone exits 2 before any network call
+- [x] `auth verify` stores `session.json` at `0600` and caches the self profile
+- [x] `auth verify` with no prior login exits 2 pointing at `auth login`
+- [x] A wrong/expired code exits 2 with the request-a-fresh-code command
+- [x] The anon-key probe selects the legacy key against production and `doctor` says so
+- [x] An expired access token triggers exactly one refresh and one retry, transparently
+- [x] A failed refresh surfaces "session expired, log in again", not a token error
+- [x] `auth status` names the active credential source; `SQUADQUEST_AXI_TOKEN` wins
+- [x] `auth logout` is idempotent, notes a lingering env token, and doesn't claim revocation
+- [x] `doctor` runs unauthenticated, reporting `skipped` with reasons
+- [x] `doctor` flags a loosened `session.json` mode as a failing check
+- [x] No command prints the access token
 
 ## Risks / unknowns
 
@@ -75,4 +75,32 @@ Out of scope: any domain command.
 
 ## Notes
 
+- **The env-asset path was wrong on the first try.** Flutter web serves declared assets at
+  `/assets/<path>`, so the dotenv asset is `/assets/.env`, not the doubled
+  `/assets/assets/.env`. `doctor` caught it immediately — which is the argument for the
+  api-key check existing at all.
+- **Verified live against production**: the probe rejects the current key, falls back to
+  legacy, caches it, and an authenticated `profiles` read succeeds. `doctor` reports
+  "current key rejected; using the legacy key (expected for this instance)".
+- **Key resolution is memoized per process and cached in `config.json`**, with a
+  `--refresh` path so a future instance-side fix is picked up rather than pinned. The
+  probe order is current-then-legacy for exactly that reason.
+- **`auth verify` writes the session twice** — once before fetching the profile, once
+  after. A profile read failure should not cost a successful login.
+- **Nothing here needed a live SMS after all.** Five criteria were briefly deferred on the
+  assumption that OTP couldn't be tested; stubbing `fetch` covers all of them, including
+  the refresh-retry path and the guard against the retry re-entering refresh.
+- **`translate()` maps 404 and `event-not-found` to the same `EVENT_NOT_FOUND`.** The
+  backend cannot distinguish "missing" from "not visible to you", and guessing would leak
+  whether an event exists (specs/commands/rsvp.md).
+
 ## Follow-ups
+
+- **The OTP round trip is covered by a stubbed `fetch`, not a live SMS.** Only the
+  transport is faked — command logic, storage, and error translation are real — so the
+  coverage is genuine, but nothing here proves the *live* endpoint behaves as
+  specs/api/auth.md describes. A single manual login against production (or the
+  `TEST_PHONE` bypass on a dev instance) should confirm it before `release-v1`.
+- **Unknown-number behavior on `/auth/v1/otp` is still unverified** — the risk this plan
+  named is unresolved, not closed. The error copy for that path is written defensively and
+  should be revisited once the behavior is observed.
