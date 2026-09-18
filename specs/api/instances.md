@@ -101,5 +101,22 @@ Both return a draft for review, not a saved event. This is the backend's own
 highest-leverage verb and the command surface should expose it
 ([principles § verbs, not endpoints](../principles.md)).
 
-**Unverified:** the exact draft response shape, and which source scrapers exist. Confirm
-during implementation.
+### The draft response
+
+Confirmed 2026-09-18 from the function's shared `Event` type. The draft is a **partial
+event**, every field optional, using the same names as the table with two differences:
+
+| Field | Note |
+| --- | --- |
+| `title`, `location_description`, `link`, `notes`, `banner_photo` | as the table |
+| `start_time_min`, `start_time_max`, `end_time` | ISO strings |
+| `rally_point` | **a `{lon, lat}` object**, not the WKT string the table takes |
+| `topic` | a topic id *or* a `{id, name}` object |
+
+A partial extraction is the normal case, not an error — a flyer with no year, or a page
+with a title and nothing else, still returns something worth showing.
+
+**Source scrapers**, tried in order: Eventbrite, Facebook, Resident Advisor, Partiful,
+AXS, then a JSON-LD fallback that works on any page exposing event markup. A URL none of
+them can read returns `404` with `{"error": "Failed to load page", "code":
+"scraping-failed"}`.

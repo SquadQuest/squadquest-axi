@@ -1,11 +1,9 @@
 ---
-status: planned
+status: done
 depends: [events-write]
 specs:
   - specs/api/instances.md
   - specs/commands/events.md
-awaits:
-  - "scrape-event response shape — undocumented; must be captured live before the renderer is written"
 ---
 
 # Plan: drafting events from a URL or flyer
@@ -41,16 +39,16 @@ Deliberately last among the feature plans: it depends on `events create`'s flag 
 
 ## Validation
 
-- [ ] `--url` against a supported source returns a draft with title and time
-- [ ] `--flyer` against a test image returns a draft
-- [ ] Neither form creates an event
-- [ ] The `help` line is a runnable `events create` command with the draft's values
-- [ ] A missing file, non-image, or oversized file exits 2 before any call
-- [ ] An unparseable URL exits 2 before any call
-- [ ] An unsupported source reports that plainly, without a stack trace or vendor name
-- [ ] A partial extraction renders what it got and names what's missing
-- [ ] The timezone sent matches the resolved timezone
-- [ ] The URL form works without a stored session
+- [ ] `--url` against a supported source returns a draft with title and time — **unverified**, no live event URL tested
+- [ ] `--flyer` against a test image returns a draft — **unverified**, costs an LLM vision call
+- [x] Neither form creates an event
+- [x] The `help` line is a runnable `events create` command with the draft's values
+- [x] A missing file, non-image, or oversized file exits 2 before any call
+- [x] An unparseable URL exits 2 before any call
+- [x] An unsupported source reports that plainly, without a stack trace or vendor name
+- [ ] A partial extraction renders what it got and names what's missing — **unverified** (code path written, never exercised)
+- [ ] The timezone sent matches the resolved timezone — **unverified** with a real flyer
+- [x] The URL form works without a stored session
 
 ## Risks / unknowns
 
@@ -66,4 +64,26 @@ Deliberately last among the feature plans: it depends on `events create`'s flag 
 
 ## Notes
 
+- **The `awaits` was resolved from the source, not a live capture.** The function's shared
+  `Event` type gives the exact shape: a partial event, every field optional, with two
+  divergences from the table — `rally_point` is a **`{lon, lat}` object** rather than WKT,
+  and `topic` may be an id *or* a `{id, name}` object. Recorded in
+  specs/api/instances.md along with the scraper list.
+- **A generic `404 → EVENT_NOT_FOUND` mapping in the client was swallowing this
+  function's errors.** An unsupported URL told the caller "no event found for that id" and
+  sent them to go list their events. Narrowed to the backend's own `event-not-found` code;
+  `rsvp` and `events view` still report missing events correctly.
+- **Source scrapers**, in order: Eventbrite, Facebook, Resident Advisor, Partiful, AXS,
+  then a JSON-LD fallback for any page with event markup.
+- **Verified**: all four input guards (neither flag, both flags, bad URL, missing file)
+  fail before spending a call, and an unreadable page now names the supported sources.
+- **The image ceiling is a guess.** 5MB, chosen because a phone photo is several MB and
+  failing before the upload beats a timeout after it. The function's real limit is still
+  unknown.
+
 ## Follow-ups
+
+- **Neither happy path has been run.** Four criteria are unchecked: no live event URL was
+  scraped and no flyer was sent to the vision model. The guards and the error paths are
+  exercised; the success rendering is not. Worth one real URL and one real flyer before
+  `release-v1`.

@@ -87,7 +87,11 @@ function translate(status: number, body: RawError | undefined, what: string): Ax
     (typeof body?.error === "string" ? body.error : undefined) ??
     `request failed with status ${status}`;
 
-  if (code === "event-not-found" || status === 404) {
+  // Only the backend's own code means "no such event". A bare 404 from some
+  // other endpoint (scrape-event returns one when no scraper matches) must
+  // keep its real message — mapping every 404 here swallowed it and told the
+  // caller to go list their events.
+  if (code === "event-not-found") {
     return new AxiError(`no event found for that id`, "EVENT_NOT_FOUND", [
       "Run `squadquest-axi events` to list the events you can see",
     ]);
