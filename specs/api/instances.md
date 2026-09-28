@@ -114,6 +114,29 @@ Both return a draft for review, not a saved event. This is the backend's own
 highest-leverage verb and the command surface should expose it
 ([principles § verbs, not endpoints](../principles.md)).
 
+## Banner photos
+
+`banner_photo` holds a **public render URL into SquadQuest's own storage**, not an
+arbitrary external link. The app always re-hosts: given a remote URL it downloads the
+bytes and uploads them, so an event's banner never depends on someone else's server
+staying up or serving hotlinks.
+
+The convention, from the v1 client (`lib/common.dart`, `event_form_screen.dart`):
+
+| Step | Detail |
+| --- | --- |
+| Bucket | `event-banners` (public) |
+| Object path | the **event id** — one banner per event, no extension |
+| Create flow | upload to `_pending/{user_id}` first, then **move** to `{instance_id}` after the event exists |
+| Edit flow | upload straight to `{instance_id}` with upsert |
+| Stored value | the public **render** URL with `?width=1024` and a `&v=<epoch_ms>` cache-buster |
+
+The cache-buster is load-bearing: the object path never changes, so without a new `v` a
+replaced banner keeps serving the old image from cache.
+
+Upload is `POST /storage/v1/object/event-banners/<path>` with the usual two auth headers,
+the image bytes as the body, and `x-upsert: true` to replace.
+
 ### The draft response
 
 Confirmed 2026-09-18 from the function's shared `Event` type. The draft is a **partial

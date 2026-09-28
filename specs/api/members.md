@@ -73,6 +73,34 @@ correctly in the app and sends **no notification** — no invitation, no host al
 person is invited in the database and uninvited in real life. Every RSVP and invitation
 goes through the function.
 
+## Event chat — `event_messages`
+
+A separate table, a plain PostgREST write, and the only surface here that is *not* an
+edge function.
+
+| Column | Notes |
+| --- | --- |
+| `id`, `created_at`, `created_by` | |
+| `instance` | uuid → instances |
+| `content` | text |
+| `pinned` | boolean |
+
+Posting is `POST /rest/v1/event_messages` with `{instance, content, pinned}`. The
+`create-event-message` **database webhook** then notifies every member whose status is
+`maybe`, `yes` or `omw` and who has `eventMessage` enabled — so a chat post is a
+notification to the whole squad, not a quiet note.
+
+### Pinning is host-only, by the app's rule
+
+The v1 client sends `pinned: isHost && _isPinned` — a **client-side** restriction. The
+database will accept a pinned message from any member; the app simply never offers the
+option. This client honours the same rule, for the same reason it guards `invite`: the
+tool should not help someone do what the app wouldn't let them.
+
+A pinned message surfaces separately from the thread, and the client tracks the *latest*
+pinned message rather than a set — so pinning a new one effectively replaces the previous
+announcement rather than adding to a list.
+
 ## Notification gating
 
 Recipients are skipped when they have no push token registered, or when the relevant key

@@ -118,7 +118,7 @@ draft is one paste.
 ```
 squadquest-axi events edit <id> [--title "..."] [--start <when>] [--start-max <when>]
   [--end <when>] [--location "..."] [--rally-point <lat,lon>] [--topic <name>]
-  [--visibility ...] [--link <url>] [--notes "..."]
+  [--visibility ...] [--link <url>] [--notes "..."] [--banner <path|url>]
 ```
 
 Changes a posted event in place. Only the flags given are touched; everything else is

@@ -41,6 +41,7 @@ Your events and guest lists — post, edit in place, or cancel to tell guests it
 --visibility <v>   private | friends | public (create; default friends; edit)
 --link <url>       an external link (create/edit)
 --notes <text>     freeform body (create/edit)
+--banner <path|url>  banner image, re-hosted by SquadQuest (create/edit)
 --url <url>        draft an event from a web page (draft)
 --flyer <path>     draft an event from a photo of a flyer (draft)
 ```
@@ -66,6 +67,22 @@ Invite friends to an event — resolves names, notifies everyone at once
 ```sh
 npx -y squadquest-axi invite "Dana" --event <id>
 npx -y squadquest-axi invite "Dana" "Sam T" --event <id>
+```
+
+### `chat [list|post] ["<message>"] --event <id> [--pin]`
+
+Read an event's chat, or post to it — a post notifies everyone going
+
+```
+--event <id>   required — which event's chat
+--limit <n>    max messages (list; default 20)
+--pin          post as the standing announcement (host only)
+```
+
+```sh
+npx -y squadquest-axi chat --event <id>
+npx -y squadquest-axi chat post "running 15 late" --event <id>
+npx -y squadquest-axi chat post "Doors at 6, we are in the back room" --event <id> --pin
 ```
 
 ### `rsvp <yes|maybe|no|omw|none> --event <id> [--note <text>]`

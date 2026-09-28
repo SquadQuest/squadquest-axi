@@ -11,6 +11,7 @@ import { inviteCommand } from "./commands/invite.js";
 import { rsvpCommand } from "./commands/rsvp.js";
 import { friendsCommand } from "./commands/friends.js";
 import { topicsCommand } from "./commands/topics.js";
+import { chatCommand } from "./commands/chat.js";
 
 /**
  * Error codes that represent a malformed invocation rather than a failed
@@ -91,6 +92,7 @@ export async function main(argv: string[] = process.argv.slice(2)) {
       rsvp: async (args) => rsvpCommand(args),
       friends: async (args) => friendsCommand(args),
       topics: async (args) => topicsCommand(args),
+      chat: async (args) => chatCommand(args),
     },
     formatError,
   });

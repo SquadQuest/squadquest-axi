@@ -23,6 +23,7 @@ export interface EventRow {
   rally_point_text: string | null;
   link: string | null;
   notes: string | null;
+  banner_photo: string | null;
   created_by: string;
 }
 
@@ -45,7 +46,7 @@ export function parseWkt(wkt: string | null): { lat: number; lon: number } | und
 
 const EVENT_COLUMNS =
   "id,status,visibility,title,topic,start_time_min,start_time_max,end_time," +
-  "location_description,rally_point_text,link,notes,created_by";
+  "location_description,rally_point_text,link,notes,banner_photo,created_by";
 
 function selfId(): string | undefined {
   return requireCredential().session?.self?.id;
