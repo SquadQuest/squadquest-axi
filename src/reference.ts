@@ -44,6 +44,7 @@ export const COMMAND_GROUPS: CommandGroup[] = [
           "--visibility <v>   private | friends | public (create; default friends; edit)",
           "--link <url>       an external link (create/edit)",
           "--notes <text>     freeform body (create/edit)",
+          "--banner <path|url>  banner image, re-hosted by SquadQuest (create/edit)",
           "--url <url>        draft an event from a web page (draft)",
           "--flyer <path>     draft an event from a photo of a flyer (draft)",
         ],
@@ -64,6 +65,20 @@ export const COMMAND_GROUPS: CommandGroup[] = [
         examples: [
           'squadquest-axi invite "Dana" --event <id>',
           'squadquest-axi invite "Dana" "Sam T" --event <id>',
+        ],
+      },
+      {
+        usage: 'chat [list|post] ["<message>"] --event <id> [--pin]',
+        summary: "Read an event's chat, or post to it — a post notifies everyone going",
+        flags: [
+          "--event <id>   required — which event's chat",
+          "--limit <n>    max messages (list; default 20)",
+          "--pin          post as the standing announcement (host only)",
+        ],
+        examples: [
+          "squadquest-axi chat --event <id>",
+          'squadquest-axi chat post "running 15 late" --event <id>',
+          'squadquest-axi chat post "Doors at 6, we are in the back room" --event <id> --pin',
         ],
       },
       {

@@ -3,6 +3,14 @@ import type { Parsed } from "../flags.js";
 import { bool, str } from "../flags.js";
 import { getEvent, membersFor, type Visibility } from "../squadquest/events.js";
 import { cancelEvent, createEvent, updateEvent } from "../squadquest/write-events.js";
+import {
+  bannerUrl,
+  moveBanner,
+  pendingPath,
+  readImage,
+  uploadBanner,
+  type ImageBytes,
+} from "../squadquest/storage.js";
 import { listTopics, nearMisses } from "../squadquest/topics.js";
 import { setRsvp } from "../squadquest/members.js";
 import { requireCredential } from "../config.js";
@@ -109,6 +117,15 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
     topicId = match.id;
   }
 
+  // Read (and for a URL, fetch) the banner BEFORE the event is written, so a
+  // bad banner fails with no event left behind.
+  const bannerSource = str(parsed, "--banner");
+  let banner: ImageBytes | undefined;
+  if (bannerSource) {
+    banner = await readImage(bannerSource);
+    await uploadBanner(pendingPath(requireCredential().session!.self!.id), banner);
+  }
+
   const event = await createEvent({
     title,
     visibility: visibilityRaw as Visibility,
@@ -131,6 +148,18 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
     rsvpFailed = error instanceof Error ? error.message : "the host RSVP failed";
   }
 
+  let bannerFailed: string | undefined;
+  if (banner) {
+    try {
+      // Matches the app: upload to _pending, then move onto the event id once
+      // the event exists (specs/api/instances.md).
+      await moveBanner(pendingPath(requireCredential().session!.self!.id), event.id);
+      await updateEvent(event.id, { banner_photo: bannerUrl(event.id) });
+    } catch (error) {
+      bannerFailed = error instanceof Error ? error.message : "the banner upload failed";
+    }
+  }
+
   const notes: string[] = [];
   if (!startMaxRaw) {
     notes.push("arrival window is a single instant — pass --start-max for a range");
@@ -150,9 +179,20 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
         topic: topicName,
         rally_point: rallyPoint ? `${rallyPoint.lat},${rallyPoint.lon}` : undefined,
         your_rsvp: rsvpFailed ? "NOT SET" : "yes",
+        banner: banner ? (bannerFailed ? "FAILED" : "attached") : undefined,
         ...(notes.length > 0 ? { note: notes.join("; ") } : {}),
       }),
     }),
+    bannerFailed
+      ? joinBlocks(
+          renderObject({
+            warning: `the event was created but the banner failed: ${bannerFailed}`,
+          }),
+          renderHelp([
+            `Run \`squadquest-axi events edit ${event.id} --banner ${bannerSource}\` to retry`,
+          ]),
+        )
+      : "",
     rsvpFailed
       ? joinBlocks(
           renderObject({
@@ -317,6 +357,14 @@ export async function editCommand(
       changes.topic = match.id;
       note("topic", event.topic ?? undefined, match.name);
     }
+  }
+
+  const bannerSource = str(parsed, "--banner");
+  if (bannerSource !== undefined) {
+    const image = await readImage(bannerSource);
+    await uploadBanner(id, image);
+    changes.banner_photo = bannerUrl(id);
+    note("banner", event.banner_photo ? "(existing)" : "(none)", "attached");
   }
 
   if (Object.keys(changes).length === 0) {

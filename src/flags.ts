@@ -273,6 +273,7 @@ export const EVENTS_FLAGS: Record<string, FlagSpec> = {
       "--visibility",
       "--link",
       "--notes",
+      "--banner",
     ],
     positionals: 1,
   },
@@ -289,6 +290,7 @@ export const EVENTS_FLAGS: Record<string, FlagSpec> = {
       "--visibility",
       "--link",
       "--notes",
+      "--banner",
     ],
   },
   draft: { value: ["--url", "--flyer"], positionals: 0 },
@@ -306,6 +308,11 @@ export const FRIENDS_FLAGS: Record<string, FlagSpec> = {
   request: { value: ["--phone", "--first-name", "--last-name"], positionals: 0 },
   accept: { positionals: 1 },
   decline: { positionals: 1 },
+};
+
+export const CHAT_FLAGS: Record<string, FlagSpec> = {
+  list: { value: ["--event", "--limit"], positionals: 0 },
+  post: { value: ["--event"], boolean: ["--pin"], positionals: 1 },
 };
 
 export const TOPICS_FLAGS: Record<string, FlagSpec> = {

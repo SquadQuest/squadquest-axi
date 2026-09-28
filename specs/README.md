@@ -27,6 +27,7 @@ specs/
     ├── events.md           # list / view / create / cancel
     ├── invite.md           # invite friends to an event
     ├── rsvp.md             # set your own status on an event
+    ├── chat.md             # event chat: read the thread, post, pin
     ├── friends.md          # the friend graph
     └── topics.md           # list / create topics
 ```
