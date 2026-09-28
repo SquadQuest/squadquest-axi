@@ -1,11 +1,8 @@
 ---
-status: blocked
+status: done
 depends: [rsvp-invite, events-write, home-hooks-docs, friend-requests]
 specs:
   - specs/architecture.md
-awaits:
-  - "BOT_GITHUB_TOKEN at the SquadQuest org — required by release-publish; unverified"
-  - "npm publish rights for the squadquest-axi name; first publish is manual by design"
 ---
 
 # Plan: release v1
@@ -43,16 +40,16 @@ most unknowns and shouldn't hold a release hostage.
 ## Validation
 
 - [x] The four release workflows are wired from the proven gws-axi wrappers
-- [ ] `release-validate` passes on a correctly-titled release PR
-- [ ] `BOT_GITHUB_TOKEN` is confirmed present at the SquadQuest org
-- [ ] The first workflow run is approved and subsequent runs start unprompted
+- [x] `release-validate` passes on a correctly-titled release PR
+- [x] `BOT_GITHUB_TOKEN` is confirmed present at the SquadQuest org
+- [x] The first workflow run is approved and subsequent runs start unprompted
 - [x] `npm pack` contains dist, LICENSE, README.md and the generated skill — 72 files
 - [x] The packed tarball contains no credentials, fixtures, tests, or `.env`
 - [x] The packed tarball installs clean and runs — home view, exit 0, `--version` correct
 - [x] The packed bin carries the executable bit (`-rwxr-xr-x`)
-- [ ] Merging the Release PR tags and publishes
-- [ ] `develop` still exists after the release merge (the ruleset holds)
-- [ ] The generated skill installs via `npx skills add SquadQuest/squadquest-axi`
+- [x] Merging the Release PR tags and publishes
+- [x] `develop` still exists after the release merge (the ruleset holds)
+- [x] The generated skill installs via `npx skills add SquadQuest/squadquest-axi`
 
 ## Risks / unknowns
 
@@ -85,16 +82,25 @@ most unknowns and shouldn't hold a release hostage.
   home view renders, exit 0, `--version` reports 0.1.0, and the bin carries
   `-rwxr-xr-x`.
 
-## Follow-ups
+## Closeout
 
-This plan is **blocked, not done**. Three things remain and all three need the owner:
+Three releases shipped: **0.1.0** manually (to claim the name so trusted publishing could
+be configured), **0.1.1** through the automation, and **0.2.0** with real release notes.
+All criteria are now met by an actual release rather than by inspection.
 
-1. Confirm `BOT_GITHUB_TOKEN` exists at the SquadQuest org (needs `admin:org`, or the
-   org settings page).
-2. The **first npm publish is manual by design** — trusted publishing can't be configured
-   for a package that doesn't exist yet. Publishing is outward-facing and irreversible,
-   so it is the owner's call, not something to do unprompted.
-3. Approve the first `github-actions[bot]` workflow run; on a repo with no history the bot
-   counts as a first-time contributor and checks sit at `action_required`.
-
-Unchecked criteria below are the ones that can only be proven by actually releasing.
+- **The `develop`-deletion trap did not fire.** `git ls-remote --heads` shows both
+  branches after two release merges. The deletion ruleset is doing its job.
+- **Trusted publishing works**: 0.2.0 carries a SLSA provenance attestation signed from
+  GitHub Actions and logged to Sigstore. No `NPM_TOKEN` is stored anywhere.
+- **Verified by installing from the registry**, not by reading a green check: `0.2.0`
+  installs clean, `--version` is right, `editCommand`/`uncancelCommand` are present, and
+  `events create` without `--topic` exits 2.
+- **The advice to close PR #1 was wrong.** It was merged instead and published fine, so
+  the caution about a red first run cost a release number for nothing.
+- **"Published" lags "publish succeeded" by minutes.** npm's own output says the package
+  "is being processed"; a registry check immediately after a green job reported the old
+  version and looked like a failure. Read the publish log before concluding anything.
+- **The first-time-contributor approval gate bites on the `pull_request` event
+  separately** from `push`, and `action_required` is the run's **conclusion**, not its
+  `status` — filtering on `status` silently matches nothing and the "approvals" do
+  nothing. PR #2 sat a week behind two unapproved duplicate runs because of that.
