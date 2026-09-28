@@ -22,25 +22,25 @@ and out.
 
 ## Events
 
-### `events [list|view|create|draft|cancel] [<id>] [flags]`
+### `events [list|view|create|edit|draft|cancel|uncancel] [<id>] [flags]`
 
-Your upcoming events, their guest lists, and posting new ones
+Your events and guest lists — post, edit in place, or cancel to tell guests it's off
 
 ```
 --past             events that already happened (list)
 --hosting          only events you host (list)
---topic <name>     filter by topic (list) / set the topic (create)
+--topic <name>     filter by topic (list) / set it (create, REQUIRED; edit)
 --limit <n>        max rows (list; default 20)
 --full             show complete notes (view)
---title <text>     required — the event title (create)
---start <when>     required — ISO or local wall clock (create)
---start-max <when> far end of the rally window (create; default = --start)
---end <when>       when it wraps up (create)
---location <text>  required — the human-readable place (create)
---rally-point <lat,lon>  map pin, latitude first (create)
---visibility <v>   private | friends | public (create; default friends)
---link <url>       an external link (create)
---notes <text>     freeform body (create)
+--title <text>     required — the event title (create; optional on edit)
+--start <when>     when people can start showing up (create, required; edit)
+--start-max <when> latest people should show up (create/edit; default = --start)
+--end <when>       when the event wraps up — NOT the arrival window (create/edit)
+--location <text>  required — the human-readable place (create; edit)
+--rally-point <lat,lon>  map pin, latitude first (create/edit)
+--visibility <v>   private | friends | public (create; default friends; edit)
+--link <url>       an external link (create/edit)
+--notes <text>     freeform body (create/edit)
 --url <url>        draft an event from a web page (draft)
 --flyer <path>     draft an event from a photo of a flyer (draft)
 ```
@@ -48,9 +48,11 @@ Your upcoming events, their guest lists, and posting new ones
 ```sh
 npx -y squadquest-axi events
 npx -y squadquest-axi events view <id>
-npx -y squadquest-axi events create --title "Wednesday ride" --start 2026-10-21T19:00 --location "Lloyd Hall"
+npx -y squadquest-axi events create --title "Wednesday ride" --start 2026-10-21T19:00 --location "Lloyd Hall" --topic bike.group-ride
 npx -y squadquest-axi events draft --url <url>
-npx -y squadquest-axi events cancel <id>
+npx -y squadquest-axi events edit <id> --notes "..." --start-max 2026-10-21T20:00
+npx -y squadquest-axi events cancel <id>     # tells guests it is OFF
+npx -y squadquest-axi events uncancel <id>
 ```
 
 ### `invite "<name|id>" ["<name|id>" ...] --event <id>`

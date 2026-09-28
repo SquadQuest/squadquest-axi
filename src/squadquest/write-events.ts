@@ -44,6 +44,19 @@ export async function createEvent(input: NewEvent): Promise<EventRow> {
 }
 
 /**
+ * Edit in place. Only the given fields are sent, so anything absent is left
+ * alone. Notification fan-out for the fields that warrant it is handled by
+ * database webhooks (specs/api/conventions.md), so the PATCH is the whole job.
+ */
+export async function updateEvent(
+  id: string,
+  changes: Record<string, unknown>,
+): Promise<EventRow | undefined> {
+  const rows = await patch<EventRow>("instances", `id=eq.${id}`, changes, "updating the event");
+  return rows[0];
+}
+
+/**
  * Cancel by status, never delete. The cancel notification is driven by the
  * status change through a database webhook; deleting the row would strand
  * every attendee silently (specs/api/instances.md).

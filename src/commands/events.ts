@@ -19,7 +19,7 @@ import {
   renderListResponse,
   renderObject,
 } from "../output/index.js";
-import { cancelCommand, createCommand } from "./events-write.js";
+import { cancelCommand, createCommand, editCommand, uncancelCommand } from "./events-write.js";
 import { draftCommand } from "./events-draft.js";
 
 const NOTES_LIMIT = 500;
@@ -33,6 +33,10 @@ export async function eventsCommand(args: string[]): Promise<string> {
       return view(parsed.positional[0], bool(parsed, "--full"), zone);
     case "create":
       return createCommand(parsed, zone);
+    case "edit":
+      return editCommand(parsed, zone, parsed.positional[0]);
+    case "uncancel":
+      return uncancelCommand(parsed.positional[0]);
     case "cancel":
       return cancelCommand(parsed.positional[0]);
     case "draft":
@@ -140,9 +144,14 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
   if (truncated) {
     suggestions.push(`Run \`squadquest-axi events view ${event.id} --full\` for the complete notes`);
   }
-  if (event.status !== "canceled") {
+  if (event.status === "canceled") {
+    suggestions.push(`Run \`squadquest-axi events uncancel ${event.id}\` to put it back on`);
+  } else {
     suggestions.push(`Run \`squadquest-axi rsvp <yes|maybe|no|omw> --event ${event.id}\` to respond`);
     suggestions.push(`Run \`squadquest-axi invite "<name>" --event ${event.id}\` to invite someone`);
+    // Surfaced on every view so an agent needing to change something finds the
+    // non-destructive verb before it reaches for cancel.
+    suggestions.push(`Run \`squadquest-axi events edit ${event.id} --notes "..."\` to fix details in place`);
   }
 
   return joinBlocks(

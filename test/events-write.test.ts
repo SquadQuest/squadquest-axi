@@ -62,7 +62,7 @@ describe("events create — guards that run before any network call", () => {
         args("--title", "T", "--location", "L", "--start", "2026-10-19T19:00", "--start-max", "2026-10-19T18:00"),
         NY,
       ),
-    ).rejects.toThrow(/--start-max is earlier/);
+    ).rejects.toThrow(/arrival window ends before it starts/);
     expect(networkCalls).toBe(0);
   });
 
@@ -81,7 +81,7 @@ describe("events create — guards that run before any network call", () => {
         args("--title", "T", "--location", "L", "--start", "2026-10-19T19:00", "--start-max", "2026-10-25T19:00"),
         NY,
       ),
-    ).rejects.toThrow(/longer than 24 hours/);
+    ).rejects.toThrow(/arrival window is longer than 24 hours/);
   });
 
   it("rejects relative dates rather than guessing", async () => {
@@ -166,5 +166,54 @@ describe("topic vocabulary rules", () => {
   it("hints when the first segment is a place rather than a domain", () => {
     expect(conventionHint("stadium.hockey")).toMatch(/is a place, not a domain/);
     expect(conventionHint("sports.hockey")).toBeUndefined();
+  });
+});
+
+describe("positional arity — the silent-duplicate bug", () => {
+  it("rejects a positional on create instead of dropping it", () => {
+    // `events create <id> --title x` silently ignored the id and inserted a
+    // duplicate while reporting success. AXI §6: a dropped argument is worse
+    // than an error, because the caller proceeds on a wrong result.
+    expect(() =>
+      parseFlags("events create", ["687a244a-62a4-43c7-9366-7516c91f0fc0", "--title", "x"], EVENTS_FLAGS.create!),
+    ).toThrow(/takes no positional arguments/);
+  });
+
+  it("still allows the positionals commands legitimately take", () => {
+    expect(parseFlags("events view", ["abc"], EVENTS_FLAGS.view!).positional).toEqual(["abc"]);
+    expect(parseFlags("events edit", ["abc"], EVENTS_FLAGS.edit!).positional).toEqual(["abc"]);
+    expect(parseFlags("events cancel", ["abc"], EVENTS_FLAGS.cancel!).positional).toEqual(["abc"]);
+    expect(parseFlags("events uncancel", ["abc"], EVENTS_FLAGS.uncancel!).positional).toEqual(["abc"]);
+  });
+
+  it("rejects a second positional where only one is allowed", () => {
+    expect(() => parseFlags("events view", ["a", "b"], EVENTS_FLAGS.view!)).toThrow(
+      /takes 1 positional argument/,
+    );
+  });
+});
+
+describe("topic is required on create", () => {
+  it("refuses to create an event with no topic", async () => {
+    // A null topic crashes the v1 clients for everyone who can see the event.
+    // The column is nullable, so refusing is the client's job.
+    await expect(
+      createCommand(
+        args("--title", "T", "--location", "L", "--start", "2026-10-19T19:00"),
+        NY,
+      ),
+    ).rejects.toThrow(/--topic is required/);
+    expect(networkCalls).toBe(0);
+  });
+
+  it("points at the vocabulary when the topic is missing", async () => {
+    try {
+      await createCommand(args("--title", "T", "--location", "L", "--start", "2026-10-19T19:00"), NY);
+      expect.unreachable();
+    } catch (error) {
+      expect((error as { suggestions: string[] }).suggestions.join(" ")).toContain(
+        "squadquest-axi topics",
+      );
+    }
   });
 });
