@@ -35,6 +35,7 @@ export const COMMAND_GROUPS: CommandGroup[] = [
           "--topic <name>     filter by topic (list) / set it (create, REQUIRED; edit)",
           "--limit <n>        max rows (list; default 20)",
           "--full             show complete notes (view)",
+          "--gpx-out[=path]   also write the route to a GPX file (view); bare = temp dir",
           "--title <text>     required — the event title (create; optional on edit)",
           "--start <when>     when people can start showing up (create, required; edit)",
           "--start-max <when> latest people should show up (create/edit; default = --start)",
@@ -53,6 +54,8 @@ export const COMMAND_GROUPS: CommandGroup[] = [
         examples: [
           "squadquest-axi events",
           "squadquest-axi events view <id>",
+          "squadquest-axi events view <id> --gpx-out",
+          "squadquest-axi events view <id> --gpx-out=./route.gpx",
           'squadquest-axi events create --title "Wednesday ride" --start 2026-10-21T19:00 --location "Lloyd Hall" --topic bike.group-ride',
           "squadquest-axi events draft --url <url>",
           'squadquest-axi events edit <id> --notes "..." --start-max 2026-10-21T20:00',

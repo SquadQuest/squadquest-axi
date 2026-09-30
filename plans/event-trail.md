@@ -76,6 +76,21 @@ made them.
 
 ## Notes
 
+- **Adding `trail_text` to the shared column set was a real regression, caught by being
+  asked.** `list` and `home` select the same columns as `view`, so every session was
+  pulling full route geometry it never rendered: **66KB for five events with routes
+  versus 1.7KB**. Split into lean `LIST_COLUMNS` and detail `EVENT_COLUMNS`, and dropped
+  `trail_text` from both — `view` now probes with a filtered id-only select and fetches
+  geometry only for `--gpx-out`. The lean set also stops `list` pulling `notes`,
+  `banner_photo`, `link` and `rally_point_text`, which it never rendered either.
+- **`--gpx-out[=path]` follows the side-channel convention**, not a generic `--out`: the
+  flag names the format, the value is optional, a bare flag writes `0600` into the OS
+  temp dir, and stdout is unchanged by the export. When a file is written the help lines
+  become commands against that path.
+- **A test using `/proc/nope` as an "unwritable path" hung the vitest worker** while
+  behaving fine standalone. Replaced with a path under a regular file — a portable,
+  inert `ENOTDIR`.
+
 - **Mirrors the app exactly, including what looks like omissions.** First track, first
   segment, no simplification, `<rte>`/`<wpt>` ignored. Verified with a two-track /
   two-segment fixture that yields 2 points, not 4.
@@ -99,7 +114,6 @@ made them.
 
 ## Follow-ups
 
-- **No GPX export.** Reading a trail back gives a summary, not a file. If anyone wants to
-  round-trip a route out of SquadQuest that is a separate, easy plan.
+- ~~No GPX export.~~ Landed as `--gpx-out[=path]` in the same plan.
 - **The upper bound on point count is still unknown** — 1500 works, and nothing has been
   pushed past it.

@@ -32,6 +32,7 @@ Your events and guest lists — post, edit in place, or cancel to tell guests it
 --topic <name>     filter by topic (list) / set it (create, REQUIRED; edit)
 --limit <n>        max rows (list; default 20)
 --full             show complete notes (view)
+--gpx-out[=path]   also write the route to a GPX file (view); bare = temp dir
 --title <text>     required — the event title (create; optional on edit)
 --start <when>     when people can start showing up (create, required; edit)
 --start-max <when> latest people should show up (create/edit; default = --start)
@@ -51,6 +52,8 @@ Your events and guest lists — post, edit in place, or cancel to tell guests it
 ```sh
 npx -y squadquest-axi events
 npx -y squadquest-axi events view <id>
+npx -y squadquest-axi events view <id> --gpx-out
+npx -y squadquest-axi events view <id> --gpx-out=./route.gpx
 npx -y squadquest-axi events create --title "Wednesday ride" --start 2026-10-21T19:00 --location "Lloyd Hall" --topic bike.group-ride
 npx -y squadquest-axi events draft --url <url>
 npx -y squadquest-axi events edit <id> --notes "..." --start-max 2026-10-21T20:00

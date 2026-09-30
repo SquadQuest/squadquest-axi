@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { parseGpx, parseLineString, toLineString, trailMiles } from "../src/squadquest/gpx.js";
+import { writeGpx } from "../src/squadquest/gpx-out.js";
 
 /**
  * specs/api/instances.md § trails — these pin the app's behaviour, including
@@ -104,5 +108,63 @@ describe("trailMiles", () => {
 
   it("is zero for a degenerate pair", () => {
     expect(trailMiles([{ lat: 39.95, lon: -75.16 }, { lat: 39.95, lon: -75.16 }])).toBe(0);
+  });
+});
+
+describe("--gpx-out side channel", () => {
+  const points = [
+    { lat: 39.9526, lon: -75.1652 },
+    { lat: 39.9656, lon: -75.181 },
+  ];
+
+  it("writes an owner-only file to the OS temp dir when bare", () => {
+    // Auto-generated exports are ephemeral scratch — the OS prunes temp,
+    // nothing prunes ~/.config (the trap metabase-axi hit).
+    const written = writeGpx(true, "abcdef12-0000-0000-0000-000000000000", "Night Ride", null, points);
+    expect(written.path.startsWith(tmpdir())).toBe(true);
+    expect(written.path).toMatch(/night-ride-abcdef12\.gpx$/);
+    expect(statSync(written.path).mode & 0o777).toBe(0o600);
+    rmSync(written.path);
+  });
+
+  it("honours an explicit path", () => {
+    const target = join(mkdtempSync(join(tmpdir(), "gpxout-")), "route.gpx");
+    const written = writeGpx(target, "id", "Ride", null, points);
+    expect(written.path).toBe(target);
+    rmSync(dirname(target), { recursive: true, force: true });
+  });
+
+  it("reports point count, distance and bounds for follow-up work", () => {
+    const written = writeGpx(true, "id2", "Ride", null, points);
+    expect(written.points).toBe(2);
+    expect(written.miles).toBeGreaterThan(1);
+    expect(written.bounds).toBe("39.9526,-75.1810 to 39.9656,-75.1652");
+    rmSync(written.path);
+  });
+
+  it("round-trips: what it writes, parseGpx reads back identically", () => {
+    const written = writeGpx(true, "id3", "Ride", null, points);
+    expect(parseGpx(readFileSync(written.path, "utf8"), "x")).toEqual(points);
+    rmSync(written.path);
+  });
+
+  it("escapes XML in the event title rather than emitting broken GPX", () => {
+    const written = writeGpx(true, "id4", 'Bikes & "Beer" <fun>', null, points);
+    const xml = readFileSync(written.path, "utf8");
+    expect(xml).toContain("Bikes &amp; &quot;Beer&quot; &lt;fun&gt;");
+    // Still parseable after escaping.
+    expect(parseGpx(xml, "x")).toEqual(points);
+    rmSync(written.path);
+  });
+
+  it("fails with guidance on an unwritable path", () => {
+    // A path *under a regular file* is a portable, inert ENOTDIR. (/proc/…
+    // looked tempting and hangs the vitest worker.)
+    const blocker = join(mkdtempSync(join(tmpdir(), "gpxblock-")), "not-a-dir");
+    writeFileSync(blocker, "x");
+    expect(() => writeGpx(join(blocker, "route.gpx"), "id", "Ride", null, points)).toThrow(
+      /could not write/,
+    );
+    rmSync(dirname(blocker), { recursive: true, force: true });
   });
 });

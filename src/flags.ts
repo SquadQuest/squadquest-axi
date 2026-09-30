@@ -19,6 +19,14 @@ export interface FlagSpec {
   boolean?: string[];
   /** Repeatable value flags — every occurrence accumulates into a `string[]`. */
   multi?: string[];
+  /**
+   * Flags whose value is optional: bare is `true`, `--flag=path` is the string.
+   *
+   * Only the `=` form supplies a value — a following bare word is a
+   * positional, not the value, so `--gpx-out ride.gpx` would be a usage error
+   * rather than a silent surprise (the side-channel export convention).
+   */
+  optionalValue?: string[];
   /** Renamed or removed flags mapped to a targeted hint. */
   deprecated?: Record<string, string>;
 }
@@ -64,10 +72,11 @@ const GLOBAL_VALUE_FLAGS = new Set(["--timezone"]);
  */
 export function parseFlags(command: string, argv: string[], spec: FlagSpec): Parsed {
   const valueFlags = new Set(spec.value ?? []);
+  const optionalValueFlags = new Set(spec.optionalValue ?? []);
   const boolFlags = new Set(spec.boolean ?? []);
   const multiFlags = new Set(spec.multi ?? []);
   const deprecated = spec.deprecated ?? {};
-  const known = [...valueFlags, ...boolFlags, ...multiFlags].sort();
+  const known = [...valueFlags, ...boolFlags, ...multiFlags, ...optionalValueFlags].sort();
 
   const positional: string[] = [];
   const flags: Record<string, string | true> = {};
@@ -110,6 +119,11 @@ export function parseFlags(command: string, argv: string[], spec: FlagSpec): Par
     const eq = arg.indexOf("=");
     const name = eq === -1 ? arg : arg.slice(0, eq);
     const inlineValue = eq === -1 ? undefined : arg.slice(eq + 1);
+
+    if (optionalValueFlags.has(name)) {
+      flags[name] = inlineValue !== undefined ? inlineValue : true;
+      continue;
+    }
 
     if (boolFlags.has(name)) {
       if (inlineValue !== undefined) {
@@ -260,7 +274,7 @@ export const SETUP_FLAGS: FlagSpec = {
 
 export const EVENTS_FLAGS: Record<string, FlagSpec> = {
   list: { value: ["--limit", "--topic"], boolean: ["--past", "--hosting"], positionals: 0 },
-  view: { boolean: ["--full"], positionals: 1 },
+  view: { boolean: ["--full"], optionalValue: ["--gpx-out"], positionals: 1 },
   edit: {
     value: [
       "--title",

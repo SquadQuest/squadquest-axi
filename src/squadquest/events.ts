@@ -21,7 +21,6 @@ export interface EventRow {
   end_time: string | null;
   location_description: string | null;
   rally_point_text: string | null;
-  trail_text: string | null;
   link: string | null;
   notes: string | null;
   banner_photo: string | null;
@@ -45,16 +44,37 @@ export function parseWkt(wkt: string | null): { lat: number; lon: number } | und
   return { lon: Number(match[1]), lat: Number(match[2]) };
 }
 
+/**
+ * Detail columns — everything `events view` renders. **`trail_text` is
+ * deliberately absent**: a real route is 4-13KB of WKT and `view` only ever
+ * shows a summary of it. Fetch it explicitly via `getTrail`.
+ */
 const EVENT_COLUMNS =
   "id,status,visibility,title,topic,start_time_min,start_time_max,end_time," +
-  "location_description,rally_point_text,trail_text,link,notes,banner_photo,created_by";
+  "location_description,rally_point_text,link,notes,banner_photo,created_by";
+
+/**
+ * List columns — only what `events list` and the home view actually render.
+ *
+ * Selecting the detail set here cost 66KB for five events with routes versus
+ * 1.7KB, for fields nothing displays. The home view runs on every session via
+ * the SessionStart hook, so its payload is the one that must stay small.
+ */
+const LIST_COLUMNS =
+  "id,status,visibility,title,topic,start_time_min,start_time_max,created_by";
 
 function selfId(): string | undefined {
   return requireCredential().session?.self?.id;
 }
 
+/** What the list and home views need — see LIST_COLUMNS. */
+export type EventListRow = Pick<
+  EventRow,
+  "id" | "status" | "visibility" | "title" | "topic" | "start_time_min" | "start_time_max" | "created_by"
+>;
+
 export interface EventWithContext {
-  event: EventRow;
+  event: EventListRow;
   /** Your own RSVP, when you have one. */
   rsvp?: RsvpStatus;
   /** yes + omw. */
@@ -99,28 +119,28 @@ export async function listEvents(options: {
   const common = [timeFilter, order, `limit=${fetchLimit}`];
 
   const hosted = me
-    ? select<EventRow>(
-        `instances?select=${EVENT_COLUMNS}&created_by=eq.${me}&${common.join("&")}`,
+    ? select<EventListRow>(
+        `instances?select=${LIST_COLUMNS}&created_by=eq.${me}&${common.join("&")}`,
         "loading your events",
       )
-    : Promise.resolve<EventRow[]>([]);
+    : Promise.resolve<EventListRow[]>([]);
 
   // `!inner` makes the membership a join condition rather than an embed, so
   // the filtering happens in the database.
   const attending = me
-    ? select<EventRow & { instance_members?: unknown }>(
-        `instances?select=${EVENT_COLUMNS},instance_members!inner(member)` +
+    ? select<EventListRow & { instance_members?: unknown }>(
+        `instances?select=${LIST_COLUMNS},instance_members!inner(member)` +
           `&instance_members.member=eq.${me}&${common.join("&")}`,
         "loading your events",
       )
-    : Promise.resolve<EventRow[]>([]);
+    : Promise.resolve<EventListRow[]>([]);
 
   const [hostedRows, attendingRows] = await Promise.all([
     hosted,
-    options.hostingOnly ? Promise.resolve<EventRow[]>([]) : attending,
+    options.hostingOnly ? Promise.resolve<EventListRow[]>([]) : attending,
   ]);
 
-  const byId = new Map<string, EventRow>();
+  const byId = new Map<string, EventListRow>();
   for (const row of [...hostedRows, ...attendingRows]) {
     if (row.status !== "draft") byId.set(row.id, row);
   }
@@ -189,6 +209,30 @@ export async function guestList(
       status: m.status,
     }))
     .sort((a, b) => rank.indexOf(a.status) - rank.indexOf(b.status));
+}
+
+/**
+ * The route, fetched on demand. Separate from `getEvent` because the geometry
+ * is large and almost nothing needs it — see `events trail`.
+ */
+export async function getTrail(id: string): Promise<string | null> {
+  const rows = await select<{ trail_text: string | null }>(
+    `instances?select=trail_text&id=eq.${id}`,
+    "loading the route",
+  );
+  return rows[0]?.trail_text ?? null;
+}
+
+/**
+ * Does this event have a route? A filtered id-only select, so the geometry
+ * never crosses the wire just to answer yes or no.
+ */
+export async function hasTrail(id: string): Promise<boolean> {
+  const rows = await select<{ id: string }>(
+    `instances?select=id&id=eq.${id}&trail=not.is.null`,
+    "checking for a route",
+  );
+  return rows.length > 0;
 }
 
 export async function topicNames(): Promise<Map<string, string>> {

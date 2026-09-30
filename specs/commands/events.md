@@ -55,6 +55,33 @@ help[2]:
 Notes truncate at 500 chars with the total shown and `--full` offered only when actually
 truncated (AXI §3).
 
+### The route is summarised, never dumped
+
+A real route is 4–13KB of WKT. `view` shows `trail: yes` and offers the export command;
+it does **not** fetch the geometry, answering "is there one?" with a filtered id-only
+probe instead. The list and home views don't select it at all — selecting the detail
+column set there cost **66KB for five events versus 1.7KB**, for a field nothing renders,
+on a view that runs every session.
+
+### `--gpx-out[=path]`
+
+Also writes the route to a GPX file. Follows the side-channel export convention
+(JarvusInnovations/axi#32, as landed in metabase-axi):
+
+- **The flag names the format.** No generic `--out`, no extension sniffing.
+- **The value is optional.** Bare writes an owner-only (`0600`) file under the OS temp
+  dir; `=path` writes where you point it and persists. Only the `=` form supplies a
+  value — `--gpx-out ride.gpx` is a usage error, not a silent surprise.
+- **stdout is unchanged by the export.** The file is purely additive; the view above it
+  reads the same either way.
+- **When a file is written**, output adds the path, point count, distance and bounding
+  box, and the help lines become commands against *that* path — inspecting it, and
+  reusing the route on another event — so an agent can act without opening the file.
+
+SquadQuest stores WKT rather than GPX, so unlike metabase-axi's exports this is a
+re-serialization, not the source's own output. Elevation and timestamps were never
+stored, so the track carries coordinates only.
+
 ## events create
 
 ```

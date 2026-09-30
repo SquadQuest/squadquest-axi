@@ -4,6 +4,7 @@ import { bool, str } from "../flags.js";
 import { getEvent, membersFor, type Visibility } from "../squadquest/events.js";
 import { cancelEvent, createEvent, updateEvent } from "../squadquest/write-events.js";
 import { readGpx, toLineString, trailMiles, type TrailPoint } from "../squadquest/gpx.js";
+import { hasTrail } from "../squadquest/events.js";
 import {
   bannerUrl,
   moveBanner,
@@ -387,7 +388,7 @@ export async function editCommand(
   if (trailPath !== undefined) {
     const points = readGpx(trailPath);
     changes.trail = toLineString(points);
-    note("trail", event.trail_text ? "(existing)" : "(none)",
+    note("trail", (await hasTrail(id)) ? "(existing)" : "(none)",
       `${points.length} points, ${trailMiles(points).toFixed(1)} mi`);
     if (!event.rally_point_text) {
       changes.rally_point = `POINT(${points[0]!.lon} ${points[0]!.lat})`;
@@ -396,7 +397,7 @@ export async function editCommand(
   }
 
   if (bool(parsed, "--clear-trail")) {
-    if (event.trail_text) {
+    if (await hasTrail(id)) {
       // NULL, not an empty LINESTRING() — the column rejects the latter.
       changes.trail = null;
       note("trail", "(existing)", "(removed)");

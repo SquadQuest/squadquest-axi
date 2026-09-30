@@ -2,7 +2,9 @@ import { AxiError } from "axi-sdk-js";
 import { EVENTS_FLAGS, bool, parseSubcommand, str } from "../flags.js";
 import {
   getEvent,
+  getTrail,
   guestList,
+  hasTrail,
   listEvents,
   parseWkt,
   topicNames,
@@ -10,6 +12,7 @@ import {
 } from "../squadquest/events.js";
 import { shortPersonName } from "../squadquest/friends.js";
 import { parseLineString, trailMiles } from "../squadquest/gpx.js";
+import { writeGpx } from "../squadquest/gpx-out.js";
 import { formatFull, formatTime, formatWindow, resolveTimezone } from "../time/wallclock.js";
 import {
   compact,
@@ -31,7 +34,7 @@ export async function eventsCommand(args: string[]): Promise<string> {
 
   switch (sub) {
     case "view":
-      return view(parsed.positional[0], bool(parsed, "--full"), zone);
+      return view(parsed.positional[0], bool(parsed, "--full"), zone, parsed.flags["--gpx-out"]);
     case "create":
       return createCommand(parsed, zone);
     case "edit":
@@ -117,7 +120,12 @@ async function list(
   });
 }
 
-async function view(id: string | undefined, full: boolean, zone: string): Promise<string> {
+async function view(
+  id: string | undefined,
+  full: boolean,
+  zone: string,
+  gpxOut: string | true | undefined,
+): Promise<string> {
   if (!id) {
     throw new AxiError("an event id is required", "USAGE", [
       "Run `squadquest-axi events` to list your events, then `events view <id>`",
@@ -135,7 +143,19 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
 
   const [guests, topics] = await Promise.all([guestList(event.id), topicNames()]);
   const point = parseWkt(event.rally_point_text);
-  const trail = parseLineString(event.trail_text);
+
+  // The route is 4-13KB of WKT and this view only ever summarises it, so the
+  // geometry is fetched ONLY when an export was asked for. Otherwise a
+  // filtered id-only probe answers "is there one?" for almost nothing.
+  const trail = gpxOut !== undefined
+    ? parseLineString(await getTrail(event.id))
+    : [];
+  const routeExists = gpxOut !== undefined ? trail.length > 0 : await hasTrail(event.id);
+
+  const exported =
+    gpxOut !== undefined && trail.length > 0
+      ? writeGpx(gpxOut, event.id, event.title, event.link, trail)
+      : undefined;
   const notes = event.notes ?? "";
   const truncated = !full && notes.length > NOTES_LIMIT;
 
@@ -143,6 +163,18 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
   const end = Date.parse(event.start_time_max);
 
   const suggestions: string[] = [];
+  if (exported) {
+    // Writing a file never changes the view above it — the export is purely
+    // additive. These lines let an agent act on the file without opening it.
+    suggestions.push(`Run \`head -20 ${exported.path}\` to inspect the exported route`);
+    suggestions.push(
+      `Run \`squadquest-axi events edit <id> --trail ${exported.path}\` to reuse this route`,
+    );
+  } else if (routeExists) {
+    suggestions.push(
+      `Run \`squadquest-axi events view ${event.id} --gpx-out\` to export the route as GPX`,
+    );
+  }
   if (truncated) {
     suggestions.push(`Run \`squadquest-axi events view ${event.id} --full\` for the complete notes`);
   }
@@ -166,9 +198,10 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
           (event.end_time ? ` (ends ${formatTime(Date.parse(event.end_time), zone)})` : ""),
         location: event.location_description ?? undefined,
         rally_point: point ? `${point.lat},${point.lon}` : undefined,
-        trail:
-          trail.length > 0
-            ? `${trail.length} points, ${trailMiles(trail).toFixed(1)} mi`
+        trail: exported
+          ? `${trail.length} points, ${trailMiles(trail).toFixed(1)} mi`
+          : routeExists
+            ? "yes"
             : undefined,
         topic: event.topic ? topics.get(event.topic) : undefined,
         visibility: event.visibility,
@@ -181,6 +214,12 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
             : undefined,
       }),
     }),
+    exported
+      ? renderObject({
+          wrote: `${exported.path} (${exported.points} points, ${exported.miles.toFixed(1)} mi)`,
+          bounds: exported.bounds,
+        })
+      : "",
     guests.length > 0
       ? renderList(
           "guests",
