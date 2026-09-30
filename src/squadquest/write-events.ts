@@ -12,6 +12,8 @@ export interface NewEvent {
   location: string;
   rallyPoint?: { lat: number; lon: number };
   topicId?: string;
+  /** WKT LINESTRING, already lon-first. */
+  trail?: string;
   link?: string;
   notes?: string;
 }
@@ -33,6 +35,7 @@ export async function createEvent(input: NewEvent): Promise<EventRow> {
       rally_point: input.rallyPoint
         ? `POINT(${input.rallyPoint.lon} ${input.rallyPoint.lat})`
         : null,
+      trail: input.trail ?? null,
       link: input.link ?? null,
       notes: input.notes ?? null,
     },
