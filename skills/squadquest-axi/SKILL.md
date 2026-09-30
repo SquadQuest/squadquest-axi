@@ -42,6 +42,8 @@ Your events and guest lists — post, edit in place, or cancel to tell guests it
 --link <url>       an external link (create/edit)
 --notes <text>     freeform body (create/edit)
 --banner <path|url>  banner image, re-hosted by SquadQuest (create/edit)
+--trail <file.gpx>   route from a GPX track (create/edit)
+--clear-trail        remove the route (edit)
 --url <url>        draft an event from a web page (draft)
 --flyer <path>     draft an event from a photo of a flyer (draft)
 ```

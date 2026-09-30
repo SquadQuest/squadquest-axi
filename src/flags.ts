@@ -274,7 +274,9 @@ export const EVENTS_FLAGS: Record<string, FlagSpec> = {
       "--link",
       "--notes",
       "--banner",
+      "--trail",
     ],
+    boolean: ["--clear-trail"],
     positionals: 1,
   },
   create: {
@@ -291,6 +293,7 @@ export const EVENTS_FLAGS: Record<string, FlagSpec> = {
       "--link",
       "--notes",
       "--banner",
+      "--trail",
     ],
   },
   draft: { value: ["--url", "--flyer"], positionals: 0 },

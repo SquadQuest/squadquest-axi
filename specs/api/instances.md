@@ -114,6 +114,32 @@ Both return a draft for review, not a saved event. This is the backend's own
 highest-leverage verb and the command surface should expose it
 ([principles § verbs, not endpoints](../principles.md)).
 
+## Trails (GPX)
+
+`trail` is a `geography(LineString)` holding the event's route — 45 production events
+have one. The app's "Upload GPX trail" (`lib/ui/core/widgets/rally_point_map.dart`)
+defines the behaviour this client mirrors:
+
+| Behaviour | Detail |
+| --- | --- |
+| Source | **the first track's first segment only** — `gpx.trks.first.trksegs.first.trkpts` |
+| Ignored | additional tracks and segments, and `<rte>` / `<wpt>` entirely |
+| Points | `lat`/`lon` only; elevation and timestamps are dropped |
+| Null coords | filtered out |
+| No track | error — "No track found in GPX file" |
+| Simplification | **none.** Every point is sent |
+| Wire format | `LINESTRING(lon lat,lon lat,…)` — longitude first, as with `POINT` |
+| Read back | `trail_text` |
+| Clearing | an empty point list writes `NULL`, not an empty `LINESTRING()` |
+
+**Uploading a trail also sets the rally point** to the first trail point, *when no rally
+point is set yet.* An existing rally point is left alone. That side effect is the app's,
+and a client that skipped it would produce events that look different depending on which
+tool made them.
+
+The geometry travels in the request body rather than a query parameter, so there is no
+URL-length ceiling and no reason to simplify a dense track.
+
 ## Banner photos
 
 `banner_photo` holds a **public render URL into SquadQuest's own storage**, not an

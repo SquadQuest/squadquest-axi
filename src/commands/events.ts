@@ -9,6 +9,7 @@ import {
   type EventWithContext,
 } from "../squadquest/events.js";
 import { shortPersonName } from "../squadquest/friends.js";
+import { parseLineString, trailMiles } from "../squadquest/gpx.js";
 import { formatFull, formatTime, formatWindow, resolveTimezone } from "../time/wallclock.js";
 import {
   compact,
@@ -134,6 +135,7 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
 
   const [guests, topics] = await Promise.all([guestList(event.id), topicNames()]);
   const point = parseWkt(event.rally_point_text);
+  const trail = parseLineString(event.trail_text);
   const notes = event.notes ?? "";
   const truncated = !full && notes.length > NOTES_LIMIT;
 
@@ -164,6 +166,10 @@ async function view(id: string | undefined, full: boolean, zone: string): Promis
           (event.end_time ? ` (ends ${formatTime(Date.parse(event.end_time), zone)})` : ""),
         location: event.location_description ?? undefined,
         rally_point: point ? `${point.lat},${point.lon}` : undefined,
+        trail:
+          trail.length > 0
+            ? `${trail.length} points, ${trailMiles(trail).toFixed(1)} mi`
+            : undefined,
         topic: event.topic ? topics.get(event.topic) : undefined,
         visibility: event.visibility,
         status: event.status,

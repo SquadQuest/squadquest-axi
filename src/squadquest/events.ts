@@ -21,6 +21,7 @@ export interface EventRow {
   end_time: string | null;
   location_description: string | null;
   rally_point_text: string | null;
+  trail_text: string | null;
   link: string | null;
   notes: string | null;
   banner_photo: string | null;
@@ -46,7 +47,7 @@ export function parseWkt(wkt: string | null): { lat: number; lon: number } | und
 
 const EVENT_COLUMNS =
   "id,status,visibility,title,topic,start_time_min,start_time_max,end_time," +
-  "location_description,rally_point_text,link,notes,banner_photo,created_by";
+  "location_description,rally_point_text,trail_text,link,notes,banner_photo,created_by";
 
 function selfId(): string | undefined {
   return requireCredential().session?.self?.id;

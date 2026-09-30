@@ -119,6 +119,7 @@ draft is one paste.
 squadquest-axi events edit <id> [--title "..."] [--start <when>] [--start-max <when>]
   [--end <when>] [--location "..."] [--rally-point <lat,lon>] [--topic <name>]
   [--visibility ...] [--link <url>] [--notes "..."] [--banner <path|url>]
+  [--trail <file.gpx>] [--clear-trail]
 ```
 
 Changes a posted event in place. Only the flags given are touched; everything else is
@@ -151,6 +152,8 @@ in the top-level summary line.
 - Reports **what changed**, old → new, per field. A caller needs to see that they edited
   the field they meant to.
 - Window and coordinate validation is identical to `create`, and runs before the write.
+- `--clear-trail` removes a route. It writes `NULL` rather than an empty geometry, which
+  is what the app does and what the column expects.
 - May change a topic, but **never clear one** — a null topic crashes the v1 clients
   ([api/instances](../api/instances.md)).
 

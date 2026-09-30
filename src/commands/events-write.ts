@@ -3,6 +3,7 @@ import type { Parsed } from "../flags.js";
 import { bool, str } from "../flags.js";
 import { getEvent, membersFor, type Visibility } from "../squadquest/events.js";
 import { cancelEvent, createEvent, updateEvent } from "../squadquest/write-events.js";
+import { readGpx, toLineString, trailMiles, type TrailPoint } from "../squadquest/gpx.js";
 import {
   bannerUrl,
   moveBanner,
@@ -86,7 +87,22 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
     ]);
   }
 
-  const rallyPoint = parseRallyPoint(str(parsed, "--rally-point"));
+  let rallyPoint = parseRallyPoint(str(parsed, "--rally-point"));
+
+  // Parsed before any write, so a bad GPX never leaves a routeless event.
+  const trailPath = str(parsed, "--trail");
+  let trailPoints: TrailPoint[] | undefined;
+  let rallyFromTrail = false;
+  if (trailPath) {
+    trailPoints = readGpx(trailPath);
+    if (!rallyPoint) {
+      // The app sets the rally point from the first trail point when none is
+      // set, and leaves an existing one alone. Mirrored so an event looks the
+      // same whichever tool made it (specs/api/instances.md).
+      rallyPoint = { lat: trailPoints[0]!.lat, lon: trailPoints[0]!.lon };
+      rallyFromTrail = true;
+    }
+  }
 
   // Required, though the column is nullable: an event with a null topic
   // crashes the v1 clients for everyone who can see it
@@ -134,6 +150,7 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
     endMillis: end,
     location,
     rallyPoint,
+    trail: trailPoints ? toLineString(trailPoints) : undefined,
     topicId,
     link: str(parsed, "--link"),
     notes: str(parsed, "--notes"),
@@ -167,6 +184,10 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
   if (startMin < Date.now()) {
     notes.push("this start time is in the past");
   }
+  if (rallyFromTrail) {
+    // Surprising if silent — say it happened.
+    notes.push("rally point set from the trail's first point");
+  }
 
   return joinBlocks(
     renderObject({
@@ -180,6 +201,9 @@ export async function createCommand(parsed: Parsed, zone: string): Promise<strin
         rally_point: rallyPoint ? `${rallyPoint.lat},${rallyPoint.lon}` : undefined,
         your_rsvp: rsvpFailed ? "NOT SET" : "yes",
         banner: banner ? (bannerFailed ? "FAILED" : "attached") : undefined,
+        trail: trailPoints
+          ? `${trailPoints.length} points, ${trailMiles(trailPoints).toFixed(1)} mi`
+          : undefined,
         ...(notes.length > 0 ? { note: notes.join("; ") } : {}),
       }),
     }),
@@ -356,6 +380,26 @@ export async function editCommand(
     if (match.id !== event.topic) {
       changes.topic = match.id;
       note("topic", event.topic ?? undefined, match.name);
+    }
+  }
+
+  const trailPath = str(parsed, "--trail");
+  if (trailPath !== undefined) {
+    const points = readGpx(trailPath);
+    changes.trail = toLineString(points);
+    note("trail", event.trail_text ? "(existing)" : "(none)",
+      `${points.length} points, ${trailMiles(points).toFixed(1)} mi`);
+    if (!event.rally_point_text) {
+      changes.rally_point = `POINT(${points[0]!.lon} ${points[0]!.lat})`;
+      note("rally point", "(none)", `${points[0]!.lat},${points[0]!.lon}`);
+    }
+  }
+
+  if (bool(parsed, "--clear-trail")) {
+    if (event.trail_text) {
+      // NULL, not an empty LINESTRING() — the column rejects the latter.
+      changes.trail = null;
+      note("trail", "(existing)", "(removed)");
     }
   }
 
