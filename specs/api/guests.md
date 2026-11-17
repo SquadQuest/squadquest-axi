@@ -33,10 +33,27 @@ changes only their own guests.
 | `instance` | uuid → instances | primary key with `guest` |
 | `guest` | uuid → guests | |
 | `status` | text | `invited` \| `yes` \| `maybe` \| `no`, default `invited` |
+| `note` | text | the guest's optional note for this event: null, or 1–200 chars of plain text |
+| `plus` | smallint | extra people coming with the guest, not counting them: 0–9, default 0 |
 | `created_at`, `updated_at` | timestamptz | |
 
 RLS: rows only on events the caller created, and only for the caller's own guests.
 Deleting a guest or an event deletes its rows.
+
+`note` is written only by the guest, through the function below; the CLI reads it and
+never writes it. It came after the tables (backend `supabase/tables/instance_rsvp_notes.sql`),
+so a server can have the tables without it: selecting it there fails with `42703`, which
+the CLI treats as "notes unavailable", never as "no notes".
+
+`plus` is the same kind of column, one step later (backend
+`supabase/tables/instance_rsvp_plus.sql`, applied after the notes file): written by the
+guest through the function, read-only in the CLI, `42703` on a server that has notes but
+not plus-ones, which the CLI treats as "plus-ones unavailable", never as "nobody brings
+anyone". The stored value is kept when the answer changes (a `no` keeps its `plus`);
+every reader counts it only for `yes` and `maybe`.
+
+The same backend file adds `guests.open_link` (the open link that created the guest,
+set by the server, never writable by hosts). The CLI does not read it.
 
 ### `instance_open_links`
 
@@ -47,8 +64,15 @@ Deleting a guest or an event deletes its rows.
 | `created_by` | uuid → profiles | defaults to the caller |
 | `created_at` | timestamptz | |
 | `closed_at` | timestamptz | null while open; a closed link stays closed |
-| `max_guests` | int | default 300: how many guests the link may create |
+| `max_guests` | int | default 300: how many people the link may bring in |
 | `guests_created` | int | maintained by the server |
+
+The cap counts `guests_created` plus the plus-ones of the guests the link created, on its
+own event, while they answer `yes` or `maybe`. A link at the cap answers `not_found` to
+everyone; an answer that would take it over is refused the same way, through the open
+link or the guest's own link. `guests open-link` reports `joined` as `guests_created`
+only: a host cannot read the plus-ones part directly, but `guests list --event` shows
+them in the headcount.
 
 Hosts may insert `instance` and update `closed_at`. RLS: only on events the caller
 created.
@@ -70,13 +94,22 @@ host hands out, which the static page turns into these calls:
 | Request | Response |
 | --- | --- |
 | `GET ?t=<guest token>` | `{guest:{name}, host:{first_name}, events:[Event]}` |
-| `POST {t, instance, status}` | same as `GET ?t` |
+| `POST {t, instance, status, note?, plus?}` | same as `GET ?t` |
 | `GET ?o=<open token>` | `{guest:null, host:{first_name}, events:[Event]}` |
-| `POST {o, phone, name, status}` | `{created, token, guest:null, host, events:[Event]}` |
+| `POST {o, phone, name, status, note?, plus?}` | `{created, token, guest:null, host, events:[Event]}` |
 
 `Event` is `{id, title, start, start_max, end, location, notes, banner, event_status,
-rsvp}`. Errors are `{error: bad_request | not_found | method_not_allowed | too_large |
-server_error}`.
+rsvp, note, plus}`: `notes` is the event's description, `note` the guest's own note (`null` on
+an open-link `GET`, for a claimed guest, and on an open-link `POST` that sent none; an
+open-link caller only ever sees the note its own request set). In a `POST`, an absent
+`note` leaves the stored one as it is; `null` or blank clears it; a string is stripped of
+control characters except newline, trimmed, and refused over 200 characters; a
+non-string is refused. `plus` is an integer 0–9, `0` when unset, on an open-link `GET`
+and for a claimed guest; an open-link `POST` returns the `plus` it sent (or 0), never the
+stored one. In a `POST`, an absent `plus` leaves the stored value as it is; `null` or `0`
+sets zero; anything but a JSON integer from 0 to 9 (a fraction, a numeric string, a
+negative, over 9) is `bad_request`. Errors are `{error: bad_request | not_found | method_not_allowed |
+claimed | too_large | server_error}`.
 
 The open-link POST is phone-first: the phone is required and deduplicated per host. A
 phone already on the host's list reuses that guest (`created: false`, `token: null`);
