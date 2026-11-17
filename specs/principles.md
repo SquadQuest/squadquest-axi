@@ -23,6 +23,9 @@ produce a row that looks correct and silently tells nobody.
 
 - Always favor the **edge function** over the equivalent PostgREST write.
 - When a verb has no edge function, say so in the spec rather than quietly inserting.
+- **Exception: guests who have not registered** ([api/guests](api/guests.md)). They have
+  no account and no push token, and this tool sends no texts, so there is no notification
+  to bypass. Their tables are written directly, with RLS as the permission check.
 
 ## 3. Verbs, not endpoints
 
