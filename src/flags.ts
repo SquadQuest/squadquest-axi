@@ -336,3 +336,30 @@ export const TOPICS_FLAGS: Record<string, FlagSpec> = {
   list: { value: ["--search", "--limit"], positionals: 0 },
   create: { boolean: ["--force"], positionals: 1 },
 };
+
+// Guests take repeatable --event on add/remove; `links` is the one command
+// with a machine-readable export (specs/commands/guests.md).
+const JSON_HINT = "There is no --json on stdout; pass --json-out[=path] to write the full result to a file";
+
+export const GUESTS_FLAGS: Record<string, FlagSpec> = {
+  list: { value: ["--event"], positionals: 0, deprecated: { "--json": JSON_HINT } },
+  add: { value: ["--name", "--phone"], multi: ["--event"], positionals: 0 },
+  links: {
+    value: ["--base-url", "--event"],
+    optionalValue: ["--json-out"],
+    // no arity cap here: the command refuses positionals itself, so that
+    // `--json-out path` (space form) gets a hint naming `--json-out=path`
+    deprecated: { "--json": JSON_HINT },
+  },
+  remove: {
+    value: ["--confirm"],
+    multi: ["--event"],
+    boolean: ["--discard-answer"],
+    positionals: 1,
+  },
+  "open-link": {
+    value: ["--event", "--base-url"],
+    boolean: ["--close", "--confirm"],
+    positionals: 0,
+  },
+};

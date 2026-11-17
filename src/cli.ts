@@ -12,6 +12,7 @@ import { rsvpCommand } from "./commands/rsvp.js";
 import { friendsCommand } from "./commands/friends.js";
 import { topicsCommand } from "./commands/topics.js";
 import { chatCommand } from "./commands/chat.js";
+import { guestsCommand } from "./commands/guests.js";
 
 /**
  * Error codes that represent a malformed invocation rather than a failed
@@ -32,6 +33,9 @@ const USAGE_CODES = new Set([
   "NEAR_MISS",
   "NOT_PERMITTED",
   "NOT_IMPLEMENTED",
+  // mutation gates: nothing was attempted (specs/commands/guests.md)
+  "CONFIRM_REQUIRED",
+  "ANSWER_WOULD_BE_LOST",
 ]);
 
 function renderFailure(
@@ -93,6 +97,7 @@ export async function main(argv: string[] = process.argv.slice(2)) {
       friends: async (args) => friendsCommand(args),
       topics: async (args) => topicsCommand(args),
       chat: async (args) => chatCommand(args),
+      guests: async (args) => guestsCommand(args),
     },
     formatError,
   });
