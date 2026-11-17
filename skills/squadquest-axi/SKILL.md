@@ -108,7 +108,7 @@ npx -y squadquest-axi rsvp omw --event <id>
 
 ### `guests [list|add|links|remove|open-link] [<guest>] [flags]`
 
-Guests who have not registered: add them to your events, hand out private RSVP links, see answers and notes
+Guests who have not registered: add them to your events, hand out private RSVP links, see answers, notes and plus-ones
 
 ```
 --event <id>         filter (list, links) / target (add, remove: repeatable; open-link)

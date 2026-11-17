@@ -85,22 +85,61 @@ function notesHeader(notes: "ok" | "unavailable"): Record<string, string> {
   return notes === "ok" ? {} : { notes: "unavailable (server has no guest notes yet)" };
 }
 
+/**
+ * The plus-ones column, right after the answer: only when some row has
+ * plus-ones, 0 for the rows without. Shows the stored value whatever the
+ * answer; the headcount is what counts only yes and maybe.
+ */
+function plusColumn<T extends { plus: number }>(items: T[]): FieldDef[] {
+  return items.some((i) => i.plus > 0) ? [computed("plus", (i) => (i as unknown as T).plus)] : [];
+}
+
+/** Header line for a server that has notes but not plus-ones yet. */
+function plusHeader(plus: "ok" | "unavailable"): Record<string, string> {
+  return plus === "ok" ? {} : { plus: "unavailable (server has no plus-ones yet)" };
+}
+
+/** People coming for one answer: the guests who said it plus their plus-ones. */
+function people(rows: GuestRow[], status: "yes" | "maybe"): string {
+  const theirs = rows.filter((r) => r.status === status);
+  const plus = theirs.reduce((sum, r) => sum + (r.plus ?? 0), 0);
+  return `${theirs.length + plus} (${theirs.length} + ${plus} plus-ones)`;
+}
+
+/** The headcount of one event's rows: yes and maybe, each with their plus-ones. */
+function headcount(rows: GuestRow[]): string {
+  return `yes ${people(rows, "yes")}, maybe ${people(rows, "maybe")}`;
+}
+
+/** Whether any of these rows has plus-ones: the headcount shows only then. */
+function anyPlus(rows: GuestRow[]): boolean {
+  return rows.some((r) => (r.plus ?? 0) > 0);
+}
+
 async function list(parsed: Parsed): Promise<string> {
   const zone = resolveTimezone(str(parsed, "--timezone"));
   const eventId = eventIdFlag(parsed, "Run `squadquest-axi guests --event <id>`");
 
   if (eventId) {
     const [event] = await requireOwnEvents([eventId]);
-    const [guests, { rows, notes }] = await Promise.all([listGuests(), listGuestAnswers(eventId)]);
+    const [guests, { rows, notes, plus }] = await Promise.all([listGuests(), listGuestAnswers(eventId)]);
     const byId = new Map(guests.map((g) => [g.id, g]));
     const items = rows
-      .map((r) => ({ name: byId.get(r.guest)?.name ?? "(unknown)", rsvp: r.status, note: r.note ?? null, id: r.guest }))
+      .map((r) => ({
+        name: byId.get(r.guest)?.name ?? "(unknown)",
+        rsvp: r.status,
+        plus: r.plus ?? 0,
+        note: r.note ?? null,
+        id: r.guest,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name));
     const tally = (s: string) => rows.filter((r) => r.status === s).length;
     const header = renderObject({
       event: `${event!.title} (${formatWindow(Date.parse(event!.start_time_min), Date.parse(event!.start_time_max), zone)})`,
       answers: `yes ${tally("yes")}, maybe ${tally("maybe")}, no ${tally("no")}, invited ${tally("invited")}`,
+      ...(anyPlus(rows) ? { headcount: headcount(rows) } : {}),
       ...notesHeader(notes),
+      ...plusHeader(plus),
     });
     if (items.length === 0) {
       return joinBlocks(
@@ -114,6 +153,7 @@ async function list(parsed: Parsed): Promise<string> {
       renderList("guests", items, [
         computed("name", (i) => i.name),
         computed("rsvp", (i) => i.rsvp),
+        ...plusColumn(items),
         ...noteColumn(items),
         computed("id", (i) => i.id),
       ]),
@@ -121,7 +161,7 @@ async function list(parsed: Parsed): Promise<string> {
     );
   }
 
-  const [guests, { rows, notes }] = await Promise.all([listGuests(), listGuestAnswers()]);
+  const [guests, { rows, notes, plus }] = await Promise.all([listGuests(), listGuestAnswers()]);
   if (guests.length === 0) {
     return joinBlocks(
       renderObject({ guests: "0 guests found" }),
@@ -135,13 +175,14 @@ async function list(parsed: Parsed): Promise<string> {
     event: string;
     start: string | null;
     rsvp: string;
+    plus: number;
     note: string | null;
     id: string;
   }> = [];
   for (const g of guests) {
     const theirs = rows.filter((r) => r.guest === g.id);
     if (theirs.length === 0) {
-      items.push({ name: g.name, event: "(no events)", start: null, rsvp: "none", note: null, id: g.id });
+      items.push({ name: g.name, event: "(no events)", start: null, rsvp: "none", plus: 0, note: null, id: g.id });
     }
     for (const r of theirs) {
       const t = titles.get(r.instance);
@@ -150,6 +191,7 @@ async function list(parsed: Parsed): Promise<string> {
         event: t?.title ?? short(r.instance),
         start: t?.start ?? null,
         rsvp: r.status,
+        plus: r.plus ?? 0,
         note: r.note ?? null,
         id: g.id,
       });
@@ -159,18 +201,39 @@ async function list(parsed: Parsed): Promise<string> {
   const byStart = (a: string | null, b: string | null) =>
     a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1;
   items.sort((a, b) => byStart(a.start, b.start) || a.name.localeCompare(b.name));
-  const eventCount = new Set(rows.filter((r) => mine.has(r.guest)).map((r) => r.instance)).size;
+  const myRows = rows.filter((r) => mine.has(r.guest));
+  const eventIds = [...new Set(myRows.map((r) => r.instance))];
+  const eventCount = eventIds.length;
+
+  // one headcount row per event, in event order, only when someone brings plus-ones
+  const headcounts = anyPlus(myRows)
+    ? eventIds
+        .map((id) => {
+          const t = titles.get(id);
+          const theirs = myRows.filter((r) => r.instance === id);
+          return { event: t?.title ?? short(id), start: t?.start ?? null, yes: people(theirs, "yes"), maybe: people(theirs, "maybe") };
+        })
+        .sort((a, b) => byStart(a.start, b.start) || a.event.localeCompare(b.event))
+    : [];
 
   return joinBlocks(
-    renderObject({ count: `${guests.length} guests on ${eventCount} events`, ...notesHeader(notes) }),
+    renderObject({ count: `${guests.length} guests on ${eventCount} events`, ...notesHeader(notes), ...plusHeader(plus) }),
     renderList("guests", items, [
       computed("name", (i) => i.name),
       computed("event", (i) => i.event),
       computed("rsvp", (i) => i.rsvp),
-      // a fifth column, only when notes exist: specs/commands/guests.md § guests list
+      // optional columns, only when they have values: specs/commands/guests.md § guests list
+      ...plusColumn(items),
       ...noteColumn(items),
       computed("id", (i) => i.id),
     ]),
+    headcounts.length > 0
+      ? renderList("headcount", headcounts, [
+          computed("event", (i) => i.event),
+          computed("yes", (i) => i.yes),
+          computed("maybe", (i) => i.maybe),
+        ])
+      : "",
     renderHelp(["Run `squadquest-axi guests --event <id>` to see one event's answers with totals"]),
   );
 }

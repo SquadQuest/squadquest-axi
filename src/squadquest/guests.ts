@@ -29,17 +29,24 @@ export interface GuestRow {
   status: GuestStatus;
   /** the guest's own note for this event; only read by listGuestAnswers() */
   note?: string | null;
+  /**
+   * extra people coming with the guest (0-9); only read by
+   * listGuestAnswers(). Stored whatever the answer: count it only for yes
+   * and maybe.
+   */
+  plus?: number;
 }
 
 /**
- * The answers with their notes. `notes` is "unavailable" when the server has
- * the guest tables but not the `note` column yet (an older backend): the
- * rows are then read without notes, and the caller must say so rather than
- * render every note as empty.
+ * The answers with their notes and plus-ones. `notes` / `plus` is
+ * "unavailable" when the server has the guest tables but not that column yet
+ * (an older backend): the rows are then read without it, and the caller must
+ * say so rather than render every value as empty or zero.
  */
 export interface GuestAnswers {
   rows: GuestRow[];
   notes: "ok" | "unavailable";
+  plus: "ok" | "unavailable";
 }
 
 export interface OpenLink {
@@ -154,22 +161,30 @@ export async function listGuestRows(eventId?: string): Promise<GuestRow[]> {
   );
 }
 
-/** listGuestRows() plus each row's note — specs/api/guests.md § instance_guests. */
+/**
+ * listGuestRows() plus each row's note and plus-ones — specs/api/guests.md
+ * § instance_guests. The columns came one after the other (notes, then
+ * plus-ones), so on 42703 it steps back one column at a time.
+ */
 export async function listGuestAnswers(eventId?: string): Promise<GuestAnswers> {
   const filter = eventId ? `&instance=eq.${eventId}` : "";
+  const read = (columns: string) =>
+    select<GuestRow>(`instance_guests?select=instance,guest,status${columns}${filter}`, "loading guest answers");
+  // 42703: column does not exist — the tables are there, that column is not
+  const missingColumn = (error: unknown) => error instanceof AxiError && error.code === "42703";
   try {
-    const rows = await select<GuestRow>(
-      `instance_guests?select=instance,guest,status,note${filter}`,
-      "loading guest answers",
-    );
-    return { rows: rows.map((r) => ({ ...r, note: r.note ?? null })), notes: "ok" };
+    const rows = await read(",note,plus");
+    return { rows: rows.map((r) => ({ ...r, note: r.note ?? null, plus: r.plus ?? 0 })), notes: "ok", plus: "ok" };
   } catch (error) {
-    // 42703: column does not exist — the tables are there, the notes are not
-    if (error instanceof AxiError && error.code === "42703") {
-      return { rows: await listGuestRows(eventId), notes: "unavailable" };
-    }
-    return unavailable(error);
+    if (!missingColumn(error)) return unavailable(error);
   }
+  try {
+    const rows = await read(",note");
+    return { rows: rows.map((r) => ({ ...r, note: r.note ?? null })), notes: "ok", plus: "unavailable" };
+  } catch (error) {
+    if (!missingColumn(error)) return unavailable(error);
+  }
+  return { rows: await listGuestRows(eventId), notes: "unavailable", plus: "unavailable" };
 }
 
 export type Match =
