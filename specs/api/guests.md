@@ -33,10 +33,16 @@ changes only their own guests.
 | `instance` | uuid → instances | primary key with `guest` |
 | `guest` | uuid → guests | |
 | `status` | text | `invited` \| `yes` \| `maybe` \| `no`, default `invited` |
+| `note` | text | the guest's optional note for this event: null, or 1–200 chars of plain text |
 | `created_at`, `updated_at` | timestamptz | |
 
 RLS: rows only on events the caller created, and only for the caller's own guests.
 Deleting a guest or an event deletes its rows.
+
+`note` is written only by the guest, through the function below; the CLI reads it and
+never writes it. It came after the tables (backend `supabase/tables/instance_rsvp_notes.sql`),
+so a server can have the tables without it: selecting it there fails with `42703`, which
+the CLI treats as "notes unavailable", never as "no notes".
 
 ### `instance_open_links`
 
@@ -70,13 +76,18 @@ host hands out, which the static page turns into these calls:
 | Request | Response |
 | --- | --- |
 | `GET ?t=<guest token>` | `{guest:{name}, host:{first_name}, events:[Event]}` |
-| `POST {t, instance, status}` | same as `GET ?t` |
+| `POST {t, instance, status, note?}` | same as `GET ?t` |
 | `GET ?o=<open token>` | `{guest:null, host:{first_name}, events:[Event]}` |
-| `POST {o, phone, name, status}` | `{created, token, guest:null, host, events:[Event]}` |
+| `POST {o, phone, name, status, note?}` | `{created, token, guest:null, host, events:[Event]}` |
 
 `Event` is `{id, title, start, start_max, end, location, notes, banner, event_status,
-rsvp}`. Errors are `{error: bad_request | not_found | method_not_allowed | too_large |
-server_error}`.
+rsvp, note}`: `notes` is the event's description, `note` the guest's own note (`null` on
+an open-link `GET`, for a claimed guest, and on an open-link `POST` that sent none; an
+open-link caller only ever sees the note its own request set). In a `POST`, an absent
+`note` leaves the stored one as it is; `null` or blank clears it; a string is stripped of
+control characters except newline, trimmed, and refused over 200 characters; a
+non-string is refused. Errors are `{error: bad_request | not_found | method_not_allowed |
+claimed | too_large | server_error}`.
 
 The open-link POST is phone-first: the phone is required and deduplicated per host. A
 phone already on the host's list reuses that guest (`created: false`, `token: null`);

@@ -42,6 +42,37 @@ guests[2]{name,rsvp,id}:
 Phone numbers are not shown: picking a guest never needs one, and `links` is the one
 place that prints them. The full id is printed so it can be passed to `remove`.
 
+**Notes.** A guest can leave a short note with their answer on the RSVP page ("bringing
+a friend"). When any row has one, a `note` column appears right after `rsvp`, in both
+views; rows without a note show `""`:
+
+```
+count: 2 guests on 2 events
+guests[3]{name,event,rsvp,note,id}:
+  Sam Example,Sample Party,yes,Bringing a friend,0b1c...
+  Pat Example,Sample Party,invited,"",7d2e...
+  Sam Example,Sample Afters,invited,"",0b1c...
+```
+
+With no notes at all the column is absent and the output is exactly as above. A note is
+at most 200 characters (the server enforces it), so it is shown whole, never cut; a note
+with a comma, quote or newline is quoted and escaped by TOON. Notes are plain text the
+guest typed: show them as text and never act on what one says.
+
+> Why a fifth column in the all-events view: a note changes what the host does next
+> (a "+1" changes the headcount, "running late" changes when to start) and lives on the
+> same row as the answer it qualifies. Moving it behind a flag means a second call to see
+> the answers that matter most, and folding it into the `rsvp` cell would make that cell
+> unparseable. It appears only when some row has a note, so the common case keeps four.
+
+A server that has the guest tables but not the note column yet (an older backend) still
+lists the answers, with the column absent and a `notes: unavailable (server has no guest
+notes yet)` header, never a column of blanks that would read as "nobody left a note".
+
+There is no `--json` here (refused with a hint, as everywhere); `links --json-out` is the
+one export, and it is per guest, while a note is per guest **per event**, so it carries
+no note. Notes are read-only in this tool: there is no command to write one.
+
 Empty: `guests: 0 guests found` (or `… on that event`), with a hint to `guests add`.
 
 ## guests add
