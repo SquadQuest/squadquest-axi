@@ -69,9 +69,47 @@ A server that has the guest tables but not the note column yet (an older backend
 lists the answers, with the column absent and a `notes: unavailable (server has no guest
 notes yet)` header, never a column of blanks that would read as "nobody left a note".
 
+**Plus-ones.** A guest can say how many extra people are coming with them (0–9). When
+any row has plus-ones, a `plus` column appears right after `rsvp` (before `note`), in
+both views, `0` on rows without, and a headcount appears: `yes` and `maybe`, each as the
+guests who said it plus their plus-ones. With `--event` it is a header line:
+
+```
+event: "Sample Party (Tue, Dec 1 6:00 PM-7:00 PM EST)"
+answers: "yes 1, maybe 1, no 1, invited 0"
+headcount: "yes 3 (1 + 2 plus-ones), maybe 2 (1 + 1 plus-ones)"
+guests[3]{name,rsvp,plus,note,id}:
+  Lee Example,no,3,"",4f80...
+  Pat Example,maybe,1,"",7d2e...
+  Sam Example,yes,2,Bringing chips,0b1c...
+```
+
+In the all-events view it is a `headcount` list after the guests, one row per event with
+guests, in event order:
+
+```
+headcount[2]{event,yes,maybe}:
+  Sample Party,3 (1 + 2 plus-ones),2 (1 + 1 plus-ones)
+  Sample Afters,0 (0 + 0 plus-ones),0 (0 + 0 plus-ones)
+```
+
+The `plus` column shows the stored value whatever the answer (a `no` keeps the number it
+had), and the headcount counts it only for `yes` and `maybe`, so `Lee Example,no,3` adds
+nobody. With no plus-ones anywhere, neither the column nor the headcount appears and
+the output is exactly as above: the `answers` line already is the headcount then.
+
+> Why the headcount and not just the column: the number the host acts on (food, chairs,
+> the venue's limit) is people, not answers, and adding up a column by hand is the
+> mistake this saves. Yes and maybe are kept apart because they plan differently.
+
+A server that has notes but not plus-ones yet lists the answers with the column and the
+headcount absent and a `plus: unavailable (server has no plus-ones yet)` header. A
+server with neither shows both `unavailable` headers.
+
 There is no `--json` here (refused with a hint, as everywhere); `links --json-out` is the
-one export, and it is per guest, while a note is per guest **per event**, so it carries
-no note. Notes are read-only in this tool: there is no command to write one.
+one export, and it is per guest, while a note and plus-ones are per guest **per event**,
+so it carries neither. Notes and plus-ones are read-only in this tool: there is no
+command to write them.
 
 Empty: `guests: 0 guests found` (or `… on that event`), with a hint to `guests add`.
 
