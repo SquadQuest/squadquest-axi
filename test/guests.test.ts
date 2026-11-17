@@ -25,6 +25,8 @@ let writes: Array<{ method: string; table: string }>;
 /** When set, POSTs to instance_guests are accepted but store nothing. */
 let dropAttach = false;
 let tablesMissing = false;
+/** When set, the server has the guest tables but not instance_guests.note. */
+let noteMissing = false;
 let seq = 0;
 const scratch: string[] = [];
 
@@ -102,6 +104,7 @@ beforeEach(() => {
   writes = [];
   dropAttach = false;
   tablesMissing = false;
+  noteMissing = false;
   db = {
     instances: [
       event(PARTY, "Sample Party", ME),
@@ -130,6 +133,10 @@ beforeEach(() => {
 
     if (tablesMissing && table !== "instances") {
       return json({ code: "42P01", message: `relation "public.${table}" does not exist` }, 404);
+    }
+
+    if (noteMissing && table === "instance_guests" && (params.get("select") ?? "").split(",").includes("note")) {
+      return json({ code: "42703", message: "column instance_guests.note does not exist" }, 400);
     }
 
     if (method === "GET") {
@@ -325,6 +332,64 @@ describe("guests list", () => {
   it("a server without the tables is GUESTS_UNAVAILABLE, never an empty list", async () => {
     tablesMissing = true;
     expect(await code(guestsCommand([]))).toBe("GUESTS_UNAVAILABLE");
+  });
+
+  it("has no note column and no notes header while nobody has left a note", async () => {
+    const out = await guestsCommand([]);
+    expect(out).not.toContain("note");
+    expect(await guestsCommand(["--event", PARTY])).not.toContain("note");
+  });
+});
+
+describe("guests list: notes", () => {
+  beforeEach(async () => {
+    await guestsCommand(["add", "--event", PARTY, "--event", AFTERS, "--name", "Sam Example", "--phone", "+15555550100"]);
+    await guestsCommand(["add", "--event", PARTY, "--name", "Pat Example"]);
+    const sam = db.guests![0]!.id;
+    Object.assign(db.instance_guests!.find((r) => r.instance === PARTY && r.guest === sam)!, {
+      status: "yes",
+      note: "Bringing a friend",
+    });
+  });
+
+  it("shows each note right after the answer, empty where there is none", async () => {
+    const out = await guestsCommand([]);
+    expect(out).toContain("guests[3]{name,event,rsvp,note,id}:");
+    expect(out).toContain("Sam Example,Sample Party,yes,Bringing a friend,");
+    expect(out).toContain('Pat Example,Sample Party,invited,"",');
+    expect(out).toContain('Sam Example,Sample Afters,invited,"",');
+    expect(out).not.toContain("notes:");
+  });
+
+  it("--event shows the note column too", async () => {
+    const out = await guestsCommand(["--event", PARTY]);
+    expect(out).toContain("guests[2]{name,rsvp,note,id}:");
+    expect(out).toContain("Sam Example,yes,Bringing a friend,");
+    expect(out).toContain('Pat Example,invited,"",');
+  });
+
+  it("a note with a comma, quotes or a newline is quoted, not split", async () => {
+    db.instance_guests!.find((r) => r.status === "yes")!.note = 'Late, sorry — "bringing chips"\nsee you';
+    const out = await guestsCommand(["--event", PARTY]);
+    expect(out).toContain('Sam Example,yes,"Late, sorry — \\"bringing chips\\"\\nsee you",');
+  });
+
+  it("reading notes sends no write", async () => {
+    writes = [];
+    await guestsCommand([]);
+    await guestsCommand(["--event", PARTY]);
+    expect(writes).toEqual([]);
+  });
+
+  it("a server without the note column still lists answers and says notes are unavailable", async () => {
+    noteMissing = true;
+    const out = await guestsCommand([]);
+    expect(out).toContain("notes: unavailable (server has no guest notes yet)");
+    expect(out).toContain("guests[3]{name,event,rsvp,id}:");
+    expect(out).toContain("Sam Example,Sample Party,yes,");
+    const one = await guestsCommand(["--event", PARTY]);
+    expect(one).toContain("notes: unavailable (server has no guest notes yet)");
+    expect(one).toContain("guests[2]{name,rsvp,id}:");
   });
 });
 

@@ -27,6 +27,19 @@ export interface GuestRow {
   instance: string;
   guest: string;
   status: GuestStatus;
+  /** the guest's own note for this event; only read by listGuestAnswers() */
+  note?: string | null;
+}
+
+/**
+ * The answers with their notes. `notes` is "unavailable" when the server has
+ * the guest tables but not the `note` column yet (an older backend): the
+ * rows are then read without notes, and the caller must say so rather than
+ * render every note as empty.
+ */
+export interface GuestAnswers {
+  rows: GuestRow[];
+  notes: "ok" | "unavailable";
 }
 
 export interface OpenLink {
@@ -139,6 +152,24 @@ export async function listGuestRows(eventId?: string): Promise<GuestRow[]> {
   return guarded(
     select<GuestRow>(`instance_guests?select=instance,guest,status${filter}`, "loading guest answers"),
   );
+}
+
+/** listGuestRows() plus each row's note — specs/api/guests.md § instance_guests. */
+export async function listGuestAnswers(eventId?: string): Promise<GuestAnswers> {
+  const filter = eventId ? `&instance=eq.${eventId}` : "";
+  try {
+    const rows = await select<GuestRow>(
+      `instance_guests?select=instance,guest,status,note${filter}`,
+      "loading guest answers",
+    );
+    return { rows: rows.map((r) => ({ ...r, note: r.note ?? null })), notes: "ok" };
+  } catch (error) {
+    // 42703: column does not exist — the tables are there, the notes are not
+    if (error instanceof AxiError && error.code === "42703") {
+      return { rows: await listGuestRows(eventId), notes: "unavailable" };
+    }
+    return unavailable(error);
+  }
 }
 
 export type Match =

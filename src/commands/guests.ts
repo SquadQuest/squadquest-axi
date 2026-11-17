@@ -15,6 +15,7 @@ import {
   findGuest,
   guestExists,
   isUuid,
+  listGuestAnswers,
   listGuestRows,
   listGuests,
   matchGuest,
@@ -67,21 +68,39 @@ function eventIdFlag(parsed: Parsed, usage: string): string | undefined {
 
 // list ───────────────────────────────────────────────────────────────
 
+type FieldDef = ReturnType<typeof computed>;
+
+/**
+ * The note column, placed right after the answer: only when some row has a
+ * note (an optional column appears only when it has values), empty for the
+ * rows without one. Notes are at most 200 characters (server-enforced), so
+ * they are shown whole.
+ */
+function noteColumn<T extends { note: string | null }>(items: T[]): FieldDef[] {
+  return items.some((i) => i.note) ? [computed("note", (i) => (i as unknown as T).note ?? null)] : [];
+}
+
+/** Header line for a server that has guests but not notes yet: never a silent blank. */
+function notesHeader(notes: "ok" | "unavailable"): Record<string, string> {
+  return notes === "ok" ? {} : { notes: "unavailable (server has no guest notes yet)" };
+}
+
 async function list(parsed: Parsed): Promise<string> {
   const zone = resolveTimezone(str(parsed, "--timezone"));
   const eventId = eventIdFlag(parsed, "Run `squadquest-axi guests --event <id>`");
 
   if (eventId) {
     const [event] = await requireOwnEvents([eventId]);
-    const [guests, rows] = await Promise.all([listGuests(), listGuestRows(eventId)]);
+    const [guests, { rows, notes }] = await Promise.all([listGuests(), listGuestAnswers(eventId)]);
     const byId = new Map(guests.map((g) => [g.id, g]));
     const items = rows
-      .map((r) => ({ name: byId.get(r.guest)?.name ?? "(unknown)", rsvp: r.status, id: r.guest }))
+      .map((r) => ({ name: byId.get(r.guest)?.name ?? "(unknown)", rsvp: r.status, note: r.note ?? null, id: r.guest }))
       .sort((a, b) => a.name.localeCompare(b.name));
     const tally = (s: string) => rows.filter((r) => r.status === s).length;
     const header = renderObject({
       event: `${event!.title} (${formatWindow(Date.parse(event!.start_time_min), Date.parse(event!.start_time_max), zone)})`,
       answers: `yes ${tally("yes")}, maybe ${tally("maybe")}, no ${tally("no")}, invited ${tally("invited")}`,
+      ...notesHeader(notes),
     });
     if (items.length === 0) {
       return joinBlocks(
@@ -95,13 +114,14 @@ async function list(parsed: Parsed): Promise<string> {
       renderList("guests", items, [
         computed("name", (i) => i.name),
         computed("rsvp", (i) => i.rsvp),
+        ...noteColumn(items),
         computed("id", (i) => i.id),
       ]),
       renderHelp([`Run \`squadquest-axi guests links --base-url <page url> --event ${eventId}\` to get their links`]),
     );
   }
 
-  const [guests, rows] = await Promise.all([listGuests(), listGuestRows()]);
+  const [guests, { rows, notes }] = await Promise.all([listGuests(), listGuestAnswers()]);
   if (guests.length === 0) {
     return joinBlocks(
       renderObject({ guests: "0 guests found" }),
@@ -110,13 +130,29 @@ async function list(parsed: Parsed): Promise<string> {
   }
   const titles = await eventTitles([...new Set(rows.map((r) => r.instance))]);
   const mine = new Set(guests.map((g) => g.id));
-  const items: Array<{ name: string; event: string; start: string | null; rsvp: string; id: string }> = [];
+  const items: Array<{
+    name: string;
+    event: string;
+    start: string | null;
+    rsvp: string;
+    note: string | null;
+    id: string;
+  }> = [];
   for (const g of guests) {
     const theirs = rows.filter((r) => r.guest === g.id);
-    if (theirs.length === 0) items.push({ name: g.name, event: "(no events)", start: null, rsvp: "none", id: g.id });
+    if (theirs.length === 0) {
+      items.push({ name: g.name, event: "(no events)", start: null, rsvp: "none", note: null, id: g.id });
+    }
     for (const r of theirs) {
       const t = titles.get(r.instance);
-      items.push({ name: g.name, event: t?.title ?? short(r.instance), start: t?.start ?? null, rsvp: r.status, id: g.id });
+      items.push({
+        name: g.name,
+        event: t?.title ?? short(r.instance),
+        start: t?.start ?? null,
+        rsvp: r.status,
+        note: r.note ?? null,
+        id: g.id,
+      });
     }
   }
   // by event start (ISO strings compare correctly), guests with no events last
@@ -126,11 +162,13 @@ async function list(parsed: Parsed): Promise<string> {
   const eventCount = new Set(rows.filter((r) => mine.has(r.guest)).map((r) => r.instance)).size;
 
   return joinBlocks(
-    renderObject({ count: `${guests.length} guests on ${eventCount} events` }),
+    renderObject({ count: `${guests.length} guests on ${eventCount} events`, ...notesHeader(notes) }),
     renderList("guests", items, [
       computed("name", (i) => i.name),
       computed("event", (i) => i.event),
       computed("rsvp", (i) => i.rsvp),
+      // a fifth column, only when notes exist: specs/commands/guests.md § guests list
+      ...noteColumn(items),
       computed("id", (i) => i.id),
     ]),
     renderHelp(["Run `squadquest-axi guests --event <id>` to see one event's answers with totals"]),
