@@ -15,6 +15,7 @@ specs/
 │   ├── instances.md        # the event object: fields, WKT geometry, UTC times, visibility, status
 │   ├── members.md          # RSVPs and invitations — both edge-function-only
 │   ├── friends.md          # the friend graph: two FK aliases, accepted/requested/declined
+│   ├── guests.md           # guests without accounts, their answers, open links (pilot)
 │   └── topics.md           # the topic taxonomy and subscriptions
 ├── behaviors/             # cross-cutting rules spanning multiple commands
 │   ├── identity-and-session.md  # credential store, whoami, expiry handling
@@ -29,6 +30,7 @@ specs/
     ├── rsvp.md             # set your own status on an event
     ├── chat.md             # event chat: read the thread, post, pin
     ├── friends.md          # the friend graph
+    ├── guests.md           # guests without accounts: add, list, links, remove, open-link
     └── topics.md           # list / create topics
 ```
 
