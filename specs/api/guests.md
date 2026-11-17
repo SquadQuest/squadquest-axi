@@ -72,11 +72,17 @@ host hands out, which the static page turns into these calls:
 | `GET ?t=<guest token>` | `{guest:{name}, host:{first_name}, events:[Event]}` |
 | `POST {t, instance, status}` | same as `GET ?t` |
 | `GET ?o=<open token>` | `{guest:null, host:{first_name}, events:[Event]}` |
-| `POST {o, name, phone?, status}` | `{token, guest, host, events}` |
+| `POST {o, phone, name, status}` | `{created, token, guest:null, host, events:[Event]}` |
 
 `Event` is `{id, title, start, start_max, end, location, notes, banner, event_status,
-rsvp}`. Errors are `{error: bad_request | not_found | method_not_allowed | conflict |
-too_large | server_error}`. The full contract is in the backend's `docs/guest-rsvp.md`.
+rsvp}`. Errors are `{error: bad_request | not_found | method_not_allowed | too_large |
+server_error}`.
+
+The open-link POST is phone-first: the phone is required and deduplicated per host. A
+phone already on the host's list reuses that guest (`created: false`, `token: null`);
+only a guest created by that request gets its token back. There is no phone
+verification, so a guest the CLI lists may have been added, or had their answer changed,
+by anyone holding the flyer. The full contract is in the backend's `docs/guest-rsvp.md`.
 
 **Links**: a guest link is `<base>?t=<guests.token>`, an open link
 `<base>?o=<instance_open_links.token>`, where `<base>` is the static page's URL. If

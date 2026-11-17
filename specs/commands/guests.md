@@ -27,14 +27,14 @@ guests[4]{name,event,rsvp,id}:
   Sam Example,Sample Party,yes,0b1c...
   Pat Example,Sample Party,invited,7d2e...
   Sam Example,Sample Afters,maybe,0b1c...
-  Lee Example,(no events),-,4f80...
+  Lee Example,(no events),none,4f80...
 ```
 
 With `--event`, the event moves to a header and the answers are totalled:
 
 ```
-event: Sample Party (Tue Dec 1 6:00-7:00 PM EST)
-answers: yes 1, maybe 0, no 0, invited 1
+event: "Sample Party (Tue, Dec 1 6:00 PM-7:00 PM EST)"
+answers: "yes 1, maybe 0, no 0, invited 1"
 guests[2]{name,rsvp,id}:
   ...
 ```
@@ -139,7 +139,7 @@ Without `--close`: shows the event's open link, creating one if there is none.
 
 ```
 action: created
-event: Sample Party (Tue Dec 1 6:00-7:00 PM EST)
+event: "Sample Party (Tue, Dec 1 6:00 PM-7:00 PM EST)"
 link: https://example.com/party/?o=5e7d…
 joined: 0 of 300
 help[1]:

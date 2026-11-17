@@ -59,8 +59,23 @@ static page itself, showing guests in the app.
 - [x] `open-link` on a non-public event needs `--confirm`
 - [x] `open-link --close` closes; with nothing open it is a no-op, exit 0
 - [x] a missing guest table is `GUESTS_UNAVAILABLE`, never an empty list
-- [ ] Verified against a local backend with the branch's tables loaded
+- [x] Verified against a local backend with the branch's tables loaded (real PostgREST v12.2.11 + RLS on supabase/postgres 15.8.1.060)
 - [ ] Verified on production with the host's own test event and an invented guest
+
+## Notes
+
+- **Exit 1 with a full block.** The SDK only sets an exit code on a thrown error, so the
+  two "report everything and exit 1" cases (an attach not read back, a failed
+  `--json-out` write) set `process.exitCode = 1` and return the block as output.
+- **TOON quotes more than the spec examples first showed** (values with commas, a bare
+  `-`, phone numbers, URLs). The spec examples now match the real output, and an empty
+  event list renders `none` instead of a quoted `-`.
+- **The open-link flow became phone-first** while this was in flight: the backend dedupes
+  by `(host, phone)` and never returns an existing guest's token. Recorded in
+  `specs/api/guests.md`; the CLI needed no change.
+- **Local end-to-end**: every subcommand was run from the built bundle against a local
+  PostgREST with the branch's tables, as an authenticated host JWT, including the
+  `CONFIRM_REQUIRED` and `ANSWER_WOULD_BE_LOST` gates and the `42P01` missing-table code.
 
 ## Risks / unknowns
 
