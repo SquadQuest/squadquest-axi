@@ -35,6 +35,7 @@ squadquest-axi auth verify <code>   # arrives by SMS
 | `invite "<name>" --event <id>` | resolves names against your friends and invites everyone in one batch |
 | `rsvp yes\|maybe\|no\|omw\|none --event <id>` | `omw` puts you on the event's live map |
 | `friends list / request / accept / decline` | your friend graph |
+| `guests list / add / links / remove / open-link` | **pilot**: guests who haven't registered, each with a private RSVP link; an open link per event for a flyer |
 | `topics list / create` | the shared tag vocabulary |
 | `doctor` | credentials, permissions, connectivity, and which API key works |
 
@@ -60,6 +61,10 @@ You only need one. The skill is generated from the same source the CLI's own `--
 ## A note on invites
 
 `invite` will not guess who you meant. A name matching two friends fails with both candidates and their ids rather than picking one, and a batch where any single name is unresolvable sends nothing at all — a half-delivered invitation has no clean retry. `friends request` takes a phone number and never a name, because it can text someone who isn't on SquadQuest.
+
+## Guests who haven't registered (pilot)
+
+`guests` lets a host invite people who don't have SquadQuest. Add them by name and optional phone to events you created, then `guests links --base-url <page>` prints each one's private link to a small RSVP page, where they answer yes, maybe or no without an account. `guests open-link` makes one link per event that anyone can use, for a QR code on a flyer. Nothing here sends a message: you send the links. Each link works as that guest's password, so send it only to them. This needs the guest tables and the `guest-rsvp` function on the server; without them the commands say `GUESTS_UNAVAILABLE`.
 
 ## Development
 

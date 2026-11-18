@@ -104,6 +104,33 @@ export const COMMAND_GROUPS: CommandGroup[] = [
     group: "People and topics",
     commands: [
       {
+        usage: "guests [list|add|links|remove|open-link] [<guest>] [flags]",
+        summary:
+          "Guests who have not registered: add them to your events, hand out private RSVP links, see answers, notes and plus-ones",
+        flags: [
+          "--event <id>         filter (list, links) / target (add, remove: repeatable; open-link)",
+          "--name <text>        required — the guest's name (add)",
+          "--phone <e164>       the guest's phone, e.g. +15555550100 (add)",
+          "--base-url <url>     required — the RSVP page's address (links, open-link)",
+          "--json-out[=path]    also write {rows:[{id,name,phone,link}]} to a file (links)",
+          "--discard-answer     remove from an event even if they answered (remove --event)",
+          '--confirm "<name>"   delete the guest and their link entirely (remove)',
+          "--confirm            make an open link on a non-public event (open-link)",
+          "--close              close the event's open link (open-link)",
+        ],
+        examples: [
+          "squadquest-axi guests",
+          "squadquest-axi guests --event <id>",
+          'squadquest-axi guests add --event <id> --event <id2> --name "Sam Example" --phone +15555550100',
+          "squadquest-axi guests links --base-url https://example.com/party/",
+          "squadquest-axi guests links --base-url https://example.com/party/ --json-out",
+          "squadquest-axi guests remove <guest-id> --event <id>",
+          'squadquest-axi guests remove <guest-id> --confirm "Sam Example"',
+          "squadquest-axi guests open-link --event <id> --base-url https://example.com/party/",
+          "squadquest-axi guests open-link --event <id> --close",
+        ],
+      },
+      {
         usage: "friends [list|request|accept|decline] [<id>] [flags]",
         summary: "Your friend graph — who you can invite, and pending requests",
         flags: [
@@ -202,6 +229,14 @@ export function renderCommandHelp(name: string): string | null {
       "",
       "edit vs cancel: `edit` fixes a record for an event that IS still happening.",
       "`cancel` is a message to your guests that it is NOT. Use edit for mistakes.",
+    );
+  }
+
+  if (name === "guests") {
+    lines.push(
+      "",
+      "Nothing here sends a message: `links` prints each guest's private link for you to send.",
+      "A link is that guest's credential. Friends who have the app are `invite`'s job.",
     );
   }
 

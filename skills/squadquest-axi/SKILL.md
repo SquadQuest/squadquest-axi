@@ -106,6 +106,34 @@ npx -y squadquest-axi rsvp omw --event <id>
 
 ## People and topics
 
+### `guests [list|add|links|remove|open-link] [<guest>] [flags]`
+
+Guests who have not registered: add them to your events, hand out private RSVP links, see answers, notes and plus-ones
+
+```
+--event <id>         filter (list, links) / target (add, remove: repeatable; open-link)
+--name <text>        required — the guest's name (add)
+--phone <e164>       the guest's phone, e.g. +15555550100 (add)
+--base-url <url>     required — the RSVP page's address (links, open-link)
+--json-out[=path]    also write {rows:[{id,name,phone,link}]} to a file (links)
+--discard-answer     remove from an event even if they answered (remove --event)
+--confirm "<name>"   delete the guest and their link entirely (remove)
+--confirm            make an open link on a non-public event (open-link)
+--close              close the event's open link (open-link)
+```
+
+```sh
+npx -y squadquest-axi guests
+npx -y squadquest-axi guests --event <id>
+npx -y squadquest-axi guests add --event <id> --event <id2> --name "Sam Example" --phone +15555550100
+npx -y squadquest-axi guests links --base-url https://example.com/party/
+npx -y squadquest-axi guests links --base-url https://example.com/party/ --json-out
+npx -y squadquest-axi guests remove <guest-id> --event <id>
+npx -y squadquest-axi guests remove <guest-id> --confirm "Sam Example"
+npx -y squadquest-axi guests open-link --event <id> --base-url https://example.com/party/
+npx -y squadquest-axi guests open-link --event <id> --close
+```
+
 ### `friends [list|request|accept|decline] [<id>] [flags]`
 
 Your friend graph — who you can invite, and pending requests

@@ -206,6 +206,16 @@ export async function patch<T>(
   )) ?? []) as T[];
 }
 
+/** DELETE matching rows; returns the rows the server says it deleted. */
+export async function remove<T>(table: string, filter: string, what: string): Promise<T[]> {
+  return ((await request(
+    `/rest/v1/${table}?${filter}`,
+    { method: "DELETE", headers: { Prefer: "return=representation" } },
+    what,
+    {},
+  )) ?? []) as T[];
+}
+
 // Edge functions ────────────────────────────────────────────────────
 
 /**
